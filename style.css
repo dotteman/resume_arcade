@@ -1,0 +1,246 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --neon-cyan: #00ffff;
+    --neon-magenta: #ff00ff;
+    --neon-green: #00ff00;
+    --neon-yellow: #ffff00;
+    --dark-bg: #0a0a0a;
+    --screen-glow: #001a1a;
+}
+
+body {
+    font-family: 'Press Start 2P', monospace;
+    background: var(--dark-bg);
+    color: var(--neon-cyan);
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* CRT Screen Effect */
+.crt-container {
+    position: relative;
+    width: 100%;
+    max-width: 1200px;
+    height: 90vh;
+    background: radial-gradient(ellipse at center, var(--screen-glow) 0%, var(--dark-bg) 100%);
+    border: 20px solid #1a1a1a;
+    border-radius: 20px;
+    box-shadow: 
+        inset 0 0 50px rgba(0, 255, 255, 0.1),
+        0 0 100px rgba(0, 255, 255, 0.3),
+        0 0 200px rgba(0, 255, 255, 0.2);
+    overflow: hidden;
+}
+
+/* Scanlines */
+.scanlines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.15),
+        rgba(0, 0, 0, 0.15) 1px,
+        transparent 1px,
+        transparent 2px
+    );
+    pointer-events: none;
+    z-index: 1000;
+    animation: scanline-movement 8s linear infinite;
+}
+
+@keyframes scanline-movement {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(4px); }
+}
+
+/* Screen flicker */
+.screen-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.01);
+    pointer-events: none;
+    z-index: 999;
+    animation: flicker 0.15s infinite;
+}
+
+@keyframes flicker {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.95; }
+}
+
+.game-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.header {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.header h1 {
+    font-size: 2.5em;
+    color: var(--neon-magenta);
+    text-shadow: 
+        0 0 10px var(--neon-magenta),
+        0 0 20px var(--neon-magenta),
+        0 0 30px var(--neon-magenta),
+        0 0 40px var(--neon-magenta);
+    letter-spacing: 5px;
+    margin-bottom: 10px;
+    position: relative;
+}
+
+/* Glitch effect */
+.glitch {
+    position: relative;
+    animation: glitch-animation 3s infinite;
+}
+
+@keyframes glitch-animation {
+    0%, 98%, 100% {
+        transform: translate(0);
+    }
+    99% {
+        transform: translate(-2px, 2px);
+    }
+}
+
+.glitch::before,
+.glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.glitch::before {
+    animation: glitch-before 3s infinite;
+    color: var(--neon-cyan);
+    z-index: -1;
+}
+
+.glitch::after {
+    animation: glitch-after 3s infinite;
+    color: var(--neon-green);
+    z-index: -2;
+}
+
+@keyframes glitch-before {
+    0%, 98%, 100% {
+        transform: translate(0);
+    }
+    99% {
+        transform: translate(-3px, 0);
+    }
+}
+
+@keyframes glitch-after {
+    0%, 98%, 100% {
+        transform: translate(0);
+    }
+    99% {
+        transform: translate(3px, 0);
+    }
+}
+
+.stats {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    font-size: 0.8em;
+    color: var(--neon-green);
+    text-shadow: 
+        0 0 5px var(--neon-green),
+        0 0 10px var(--neon-green);
+}
+
+/* Instructions */
+.instructions {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.instructions p {
+    font-size: 0.7em;
+    color: var(--neon-yellow);
+    text-shadow: 
+        0 0 5px var(--neon-yellow),
+        0 0 10px var(--neon-yellow);
+    letter-spacing: 2px;
+}
+
+/* Canvas */
+#gameCanvas {
+    flex: 1;
+    width: 100%;
+    border: 2px solid var(--neon-cyan);
+    background: rgba(0, 10, 10, 0.8);
+    box-shadow: 
+        inset 0 0 30px rgba(0, 255, 255, 0.2),
+        0 0 20px rgba(0, 255, 255, 0.3);
+    image-rendering: pixelated;
+}
+
+/* Footer */
+.footer {
+    text-align: center;
+    margin-top: 15px;
+}
+
+.blink {
+    font-size: 0.8em;
+    color: var(--neon-magenta);
+    text-shadow: 
+        0 0 5px var(--neon-magenta),
+        0 0 10px var(--neon-magenta);
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0.3; }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .header h1 {
+        font-size: 1.5em;
+    }
+    
+    .stats {
+        font-size: 0.6em;
+        gap: 20px;
+    }
+    
+    .instructions p {
+        font-size: 0.5em;
+    }
+    
+    .blink {
+        font-size: 0.6em;
+    }
+}

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Invaders - Retro Resume</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="crt-container">
+        <div class="scanlines"></div>
+        <div class="screen-overlay"></div>
+        
+        <div class="game-container">
+            <div class="header">
+                <h1 class="glitch" data-text="RESUME INVADERS">RESUME INVADERS</h1>
+                <div class="stats">
+                    <span class="score">SCORE: <span id="score">0000</span></span>
+                    <span class="hits">HITS: <span id="hits">0</span></span>
+                </div>
+            </div>
+            
+            <div class="instructions">
+                <p>◄ ► MOVE  •  SPACE SHOOT  •  DESTROY THE RESUME!</p>
+            </div>
+            
+            <canvas id="gameCanvas"></canvas>
+            
+            <div class="footer">
+                <p class="blink">INSERT COIN TO CONTINUE</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Configuration (edit resume here) -->
+    <script src="config.js"></script>
+    
+    <!-- Game Engine -->
+    <script src="engine.js"></script>
+    
+    <!-- Game Modules (all three game types) -->
+    <script src="game-invaders.js"></script>
+    <script src="game-breakout.js"></script>
+    <script src="game-asteroids.js"></script>
+</body>
+</html>
