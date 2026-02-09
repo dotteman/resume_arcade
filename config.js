@@ -110,7 +110,7 @@ const GAME_CONFIG = {
     
     // Game difficulty settings
     difficulty: {
-        letterSpeed: 0.3,      // Speed letters descend (invaders)
+        letterSpeed: 0.2,      // Speed letters descend (invaders)
         playerSpeed: 5,        // How fast the player moves
         bulletSpeed: 8         // How fast bullets travel
     }
