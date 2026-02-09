@@ -98,7 +98,7 @@ const RESUME_CONFIG = {
 
 const GAME_CONFIG = {
     // Choose your game type: 'invaders', 'breakout', 'asteroids'
-    gameType: 'invaders',
+    gameType: 'breakout',
     
     // Theme colors (can be customized per game)
     theme: {
