@@ -111,25 +111,28 @@ body.no-crt .glitch::after { animation: none; }
 
 .header h1 {
     font-size: clamp(1rem, 3.2vw, 2.2rem);
-    color: var(--neon-magenta);
+    /* Neon tube: pale core, tight colored halo, faint outer bloom */
+    color: #ff6bff;
     text-shadow:
-        0 0 10px var(--neon-magenta),
-        0 0 20px var(--neon-magenta),
-        0 0 30px var(--neon-magenta);
+        0 0 2px rgba(255, 210, 255, 0.9),
+        0 0 6px rgba(255, 0, 255, 0.7),
+        0 0 16px rgba(255, 0, 255, 0.3);
     letter-spacing: 4px;
     position: relative;
 }
 
 .glitch {
     position: relative;
-    animation: glitch-animation 3s infinite;
+    animation: glitch-animation 4s infinite;
 }
 
 @keyframes glitch-animation {
-    0%, 98%, 100% { transform: translate(0); }
-    99% { transform: translate(-2px, 2px); }
+    0%, 98.5%, 100% { transform: translate(0); }
+    99% { transform: translate(-1px, 1px); }
 }
 
+/* Colored offset copies only appear during the brief glitch frame,
+   so they don't stack extra glow on top of the title the rest of the time */
 .glitch::before,
 .glitch::after {
     content: attr(data-text);
@@ -138,28 +141,31 @@ body.no-crt .glitch::after { animation: none; }
     left: 0;
     width: 100%;
     height: 100%;
+    text-shadow: none;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .glitch::before {
-    animation: glitch-before 3s infinite;
+    animation: glitch-before 4s infinite;
     color: var(--neon-cyan);
     z-index: -1;
 }
 
 .glitch::after {
-    animation: glitch-after 3s infinite;
+    animation: glitch-after 4s infinite;
     color: var(--neon-green);
     z-index: -2;
 }
 
 @keyframes glitch-before {
-    0%, 98%, 100% { transform: translate(0); }
-    99% { transform: translate(-3px, 0); }
+    0%, 98.5%, 100% { transform: translate(0); opacity: 0; }
+    99% { transform: translate(-2px, 0); opacity: 0.6; }
 }
 
 @keyframes glitch-after {
-    0%, 98%, 100% { transform: translate(0); }
-    99% { transform: translate(3px, 0); }
+    0%, 98.5%, 100% { transform: translate(0); opacity: 0; }
+    99% { transform: translate(2px, 0); opacity: 0.6; }
 }
 
 .stats {
@@ -169,7 +175,7 @@ body.no-crt .glitch::after { animation: none; }
     gap: 6px 32px;
     font-size: 0.7rem;
     color: var(--neon-green);
-    text-shadow: 0 0 5px var(--neon-green), 0 0 10px var(--neon-green);
+    text-shadow: 0 0 4px rgba(0, 255, 0, 0.5);
 }
 
 /* ---------- buttons ---------- */
@@ -190,7 +196,7 @@ body.no-crt .glitch::after { animation: none; }
     padding: 6px 10px;
     cursor: pointer;
     text-decoration: none;
-    text-shadow: 0 0 6px currentColor;
+    text-shadow: 0 0 3px currentColor;
 }
 
 .btn:hover,
@@ -211,7 +217,7 @@ body.no-crt .glitch::after { animation: none; }
     font-size: 0.6rem;
     line-height: 1.6;
     color: var(--neon-yellow);
-    text-shadow: 0 0 5px var(--neon-yellow), 0 0 10px var(--neon-yellow);
+    text-shadow: 0 0 4px rgba(255, 255, 0, 0.45);
     letter-spacing: 1px;
 }
 
@@ -270,7 +276,7 @@ body.no-crt .glitch::after { animation: none; }
 .menu-title {
     font-size: clamp(0.9rem, 2.4vw, 1.5rem);
     color: var(--neon-yellow);
-    text-shadow: 0 0 10px var(--neon-yellow);
+    text-shadow: 0 0 5px rgba(255, 255, 0, 0.5);
     animation: blink 1s steps(1) infinite;
 }
 
@@ -353,7 +359,7 @@ body.no-crt .glitch::after { animation: none; }
     font-family: var(--pixel);
     font-size: 0.65rem;
     color: var(--neon-magenta);
-    text-shadow: 0 0 8px var(--neon-magenta);
+    text-shadow: 0 0 4px rgba(255, 0, 255, 0.5);
     margin-bottom: 8px;
 }
 
@@ -431,7 +437,7 @@ body.no-crt .glitch::after { animation: none; }
 .blink {
     font-size: 0.7rem;
     color: var(--neon-magenta);
-    text-shadow: 0 0 5px var(--neon-magenta), 0 0 10px var(--neon-magenta);
+    text-shadow: 0 0 4px rgba(255, 0, 255, 0.5);
     animation: blink 1s infinite;
 }
 
