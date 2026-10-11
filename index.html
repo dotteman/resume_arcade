@@ -2,45 +2,104 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resume Invaders - Retro Resume</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Resume Arcade — Dave Otteman, DevOps Engineer</title>
+    <meta name="description" content="Dave Otteman — DevOps Engineer in Portland, OR (Azure, Terraform, Ansible, Azure DevOps, PowerShell). Read the resume or play it as a retro arcade game.">
+    <meta name="theme-color" content="#0a0a0a">
+
+    <!-- Link previews (LinkedIn, Slack, Teams, etc.) -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Resume Arcade — Dave Otteman, DevOps Engineer">
+    <meta property="og:description" content="A retro arcade resume: shoot, break and blast your way through my experience — or just read it.">
+    <meta property="og:url" content="https://dotteman.github.io/resume_arcade/">
+    <meta property="og:image" content="https://dotteman.github.io/resume_arcade/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230a0a0a'/%3E%3Cpath fill='%23ff00ff' d='M3 4h2v2H3zM11 4h2v2h-2zM4 6h8v2H4zM2 8h12v2H2zM2 10h2v2H2zM12 10h2v2h-2zM5 10h6v2H5z'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="crt-container">
-        <div class="scanlines"></div>
-        <div class="screen-overlay"></div>
-        
+    <div class="crt-container" id="crt">
+        <div class="scanlines" aria-hidden="true"></div>
+        <div class="screen-overlay" aria-hidden="true"></div>
+
         <div class="game-container">
-            <div class="header">
-                <h1 class="glitch" data-text="RESUME INVADERS">RESUME INVADERS</h1>
-                <div class="stats">
-                    <span class="score">SCORE: <span id="score">0000</span></span>
-                    <span class="hits">HITS: <span id="hits">0</span></span>
+            <header class="header">
+                <h1 class="glitch" id="gameTitle" data-text="RESUME ARCADE">RESUME ARCADE</h1>
+                <div class="stats" aria-live="off">
+                    <span>SCORE: <span id="score">0000</span></span>
+                    <span>HITS: <span id="hits">0</span></span>
+                    <span class="unlock-stat">UNLOCKED: <span id="unlocked">0/0</span></span>
                 </div>
+                <nav class="toolbar" aria-label="Arcade controls">
+                    <button type="button" id="btnResume" class="btn btn-primary">[R] READ RESUME</button>
+                    <button type="button" id="btnPause" class="btn" hidden>[P] PAUSE</button>
+                    <button type="button" id="btnMenu" class="btn">[M] MENU</button>
+                    <button type="button" id="btnCrt" class="btn" aria-pressed="true">[C] CRT: ON</button>
+                </nav>
+            </header>
+
+            <p class="instructions" id="instructions">LOADING…</p>
+
+            <div class="play-area">
+                <div class="canvas-wrap">
+                    <canvas id="gameCanvas" tabindex="0" role="img"
+                            aria-label="Arcade game built from Dave Otteman's resume. Press R for a readable version."></canvas>
+
+                    <div class="menu" id="menu" hidden>
+                        <h2 class="menu-title">SELECT GAME</h2>
+                        <div class="menu-list" id="menuList"></div>
+                        <p class="menu-or">— OR —</p>
+                        <button type="button" class="menu-item menu-read" id="menuRead">
+                            <span class="menu-key">R</span><span class="menu-name">JUST READ THE RESUME</span>
+                        </button>
+                    </div>
+                </div>
+
+                <aside class="reveal-panel" id="revealPanel" aria-label="Resume lines unlocked so far">
+                    <h2 class="reveal-heading">RESUME DATA</h2>
+                    <div id="revealList"></div>
+                </aside>
             </div>
-            
-            <div class="instructions">
-                <p>◄ ► MOVE  •  SPACE SHOOT  •  DESTROY THE RESUME!</p>
+
+            <p class="ticker" id="ticker" aria-live="polite"></p>
+
+            <footer class="footer">
+                <p class="blink" id="footerText">INSERT COIN TO CONTINUE</p>
+            </footer>
+        </div>
+
+        <!-- Readable resume (generated from config.js) -->
+        <div class="resume-view" id="resumeView" role="dialog" aria-modal="true" aria-labelledby="rvName" hidden>
+            <div class="rv-actions">
+                <a class="btn btn-primary" id="rvPdf" download hidden>DOWNLOAD PDF</a>
+                <button type="button" class="btn" id="rvPrint">PRINT</button>
+                <button type="button" class="btn" id="rvClose">[ESC] BACK TO ARCADE</button>
             </div>
-            
-            <canvas id="gameCanvas"></canvas>
-            
-            <div class="footer">
-                <p class="blink">INSERT COIN TO CONTINUE</p>
-            </div>
+            <main class="rv-body" id="rvBody"></main>
         </div>
     </div>
-    
+
+    <noscript>
+        <div class="noscript">
+            <h1>Dave Otteman — DevOps Engineer</h1>
+            <p>Portland, OR · <a href="mailto:dave.otteman@gmail.com">dave.otteman@gmail.com</a> ·
+               <a href="https://linkedin.com/in/daveotteman">LinkedIn</a> ·
+               <a href="https://github.com/dotteman">GitHub</a></p>
+            <p>This arcade resume needs JavaScript. The resume data lives in <code>config.js</code> in the repository.</p>
+        </div>
+    </noscript>
+
     <!-- Configuration (edit resume here) -->
     <script src="config.js"></script>
-    
-    <!-- Game Engine -->
+    <!-- Engine, games, UI -->
     <script src="engine.js"></script>
-    
-    <!-- Game Modules (all three game types) -->
     <script src="game-invaders.js"></script>
     <script src="game-breakout.js"></script>
     <script src="game-asteroids.js"></script>
+    <script src="ui.js"></script>
 </body>
 </html>

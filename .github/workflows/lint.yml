@@ -1,0 +1,28 @@
+name: Lint
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Syntax-check JavaScript
+        run: |
+          for f in $(git ls-files '*.js'); do
+            echo "node --check $f"
+            node --check "$f"
+          done
+
+      - name: Lint HTML
+        run: npx --yes htmlhint@1 index.html

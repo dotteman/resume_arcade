@@ -1,7 +1,9 @@
 // ============================================
 // RESUME CONFIGURATION
 // ============================================
-// Edit this file to customize your resume content
+// Edit this file to customize your resume content.
+// Text can be written in any case: the games upper-case it automatically,
+// while the "READ RESUME" view shows it exactly as written.
 
 const RESUME_CONFIG = {
     // Personal Info
@@ -11,7 +13,10 @@ const RESUME_CONFIG = {
         email: "dave.otteman@gmail.com",
         location: "PORTLAND, OR",
         linkedin: "linkedin.com/in/daveotteman",
-        github: "github.com/daveotteman"
+        github: "github.com/dotteman",
+        // Optional: path to a PDF in this repo, e.g. "Dave_Otteman_Resume.pdf".
+        // When set, a DOWNLOAD PDF button appears in the resume view.
+        resumePdf: ""
     },
 
     // Skills (will be displayed as skill tags)
@@ -97,85 +102,79 @@ const RESUME_CONFIG = {
 // ============================================
 
 const GAME_CONFIG = {
-    // Choose your game type: 'invaders', 'breakout', 'asteroids'
-    gameType: 'breakout',
-    
-    // Theme colors (can be customized per game)
+    // Game highlighted on the start screen: 'invaders', 'breakout', 'asteroids'.
+    // Visitors pick from the menu; ?game=<name> in the URL skips it.
+    defaultGame: 'breakout',
+
+    // Theme colors
     theme: {
         primary: '#00ffff',    // Cyan
         secondary: '#ff00ff',  // Magenta
         accent: '#00ff00',     // Green
         warning: '#ffff00'     // Yellow
     },
-    
-    // Game difficulty settings
+
+    // Speeds are in pixels per frame at 60 fps (frame-rate independent)
     difficulty: {
-        letterSpeed: 0.2,      // Speed letters descend (invaders)
-        playerSpeed: 5,        // How fast the player moves
-        bulletSpeed: 8         // How fast bullets travel
+        letterSpeed: 0.35,     // Invaders formation descent
+        playerSpeed: 7,        // Ship / paddle speed
+        bulletSpeed: 9,        // Bullet speed
+        ballSpeed: 7,          // Breakout ball speed
+        lives: 3
     }
 };
 
 // ============================================
-// TEXT FORMATTER (converts resume to game text)
+// RESUME → GAME DATA
 // ============================================
 
-function formatResumeForGame() {
-    const lines = [];
+// Builds the resume as sections of lines. Every game uses this so a hit on
+// any piece of a line can "unlock" that line in the side panel.
+function buildResumeSections() {
     const r = RESUME_CONFIG;
-    
-    // Header
-    lines.push(r.personal.name);
-    lines.push(r.personal.title);
-    lines.push('');
-    
-    // Contact
-    if (r.personal.email) lines.push(r.personal.email);
-    if (r.personal.location) lines.push(r.personal.location);
-    lines.push('');
-    
-    // Skills
-    if (r.skills && r.skills.length > 0) {
-        lines.push('--- SKILLS ---');
-        r.skills.forEach(skill => lines.push(skill));
-        lines.push('');
-    }
-    
-    // Experience
-    if (r.experience && r.experience.length > 0) {
-        lines.push('--- EXPERIENCE ---');
-        r.experience.forEach(job => {
-            lines.push(job.title);
-            lines.push(`${job.company} ${job.period}`);
-            if (job.achievements) {
-                job.achievements.forEach(achievement => {
-                    lines.push(`* ${achievement}`);
-                });
-            }
-            lines.push('');
+    const p = r.personal || {};
+    const sections = [];
+
+    const header = [p.name, p.title, p.location, p.email, p.linkedin, p.github].filter(Boolean);
+    if (header.length) sections.push({ title: 'PLAYER 1', lines: header });
+
+    if (r.skills && r.skills.length) sections.push({ title: 'SKILLS', lines: r.skills });
+
+    (r.experience || []).forEach(job => {
+        sections.push({
+            title: `EXPERIENCE: ${job.company}`,
+            lines: [job.title, `${job.company} | ${job.period}`, ...(job.achievements || [])]
+        });
+    });
+
+    if (r.education && r.education.length) {
+        sections.push({
+            title: 'EDUCATION',
+            lines: r.education.flatMap(e => [e.degree, [e.school, e.year].filter(Boolean).join(' | ')])
         });
     }
-    
-    // Education
-    if (r.education && r.education.length > 0) {
-        lines.push('--- EDUCATION ---');
-        r.education.forEach(edu => {
-            lines.push(edu.degree);
-            lines.push(`${edu.school} ${edu.year}`);
-        });
-        lines.push('');
-    }
-    
-    // Projects
-    if (r.projects && r.projects.length > 0) {
-        lines.push('--- PROJECTS ---');
-        r.projects.forEach(proj => {
-            lines.push(proj.name);
-            lines.push(proj.description);
-            if (proj.tech) lines.push(proj.tech);
-            lines.push('');
+
+    if (r.projects && r.projects.length) {
+        sections.push({
+            title: 'PROJECTS',
+            lines: r.projects.flatMap(pr => [pr.name, pr.description, pr.tech].filter(Boolean))
         });
     }
-    
-    return lines;
+
+    let id = 0;
+    return sections.map((s, si) => ({
+        title: s.title.toUpperCase(),
+        lines: s.lines.map(text => ({ id: id++, section: si, text: String(text).toUpperCase() }))
+    }));
+}
+
+// Kept for backwards compatibility: flat list of upper-case lines.
+function formatResumeForGame() {
+    const out = [];
+    buildResumeSections().forEach(s => {
+        out.push(`--- ${s.title} ---`);
+        s.lines.forEach(l => out.push(l.text));
+        out.push('');
+    });
+    return out;
 }
