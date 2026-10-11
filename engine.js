@@ -24,13 +24,91 @@ const ArcadeAudio = {
     },
 
     unlock() {
-        if (!this.enabled || this.context) return;
-        const Audio = window.AudioContext || window.webkitAudioContext;
-        if (!Audio) return;
-        try { this.context = new Audio(); } catch (_) { return; }
+        if (!this.enabled) return;
+        if (!this.context) {
+            const Audio = window.AudioContext || window.webkitAudioContext;
+            if (!Audio) return;
+            try { this.context = new Audio(); } catch (_) { return; }
+        }
+        if (this.context.state === 'suspended') this.context.resume().catch(() => {});
+    },
+
+    setThruster(active) {
+        const ctx = this.context;
+        if (!ctx || ctx.state !== 'running') return;
+        active = active && this.enabled && !document.hidden;
+        if (!this.thruster && !active) return;
+        if (!this.thruster) {
+            const buffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+            const samples = buffer.getChannelData(0);
+            for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
+            const noise = ctx.createBufferSource();
+            noise.buffer = buffer;
+            noise.loop = true;
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(650, ctx.currentTime);
+            noise.connect(filter);
+            const gain = ctx.createGain();
+            gain.gain.setValueAtTime(0, ctx.currentTime);
+            filter.connect(gain);
+            gain.connect(ctx.destination);
+            const oscillator = ctx.createOscillator();
+            oscillator.type = 'sawtooth';
+            oscillator.frequency.setValueAtTime(65, ctx.currentTime);
+            const toneGain = ctx.createGain();
+            toneGain.gain.setValueAtTime(0.16, ctx.currentTime);
+            oscillator.connect(toneGain);
+            toneGain.connect(gain);
+            noise.start();
+            oscillator.start();
+            this.thruster = { noise, oscillator, filter, toneGain, gain };
+        }
+        this.thruster.gain.gain.setTargetAtTime(active ? 0.065 : 0, ctx.currentTime, active ? 0.025 : 0.05);
+    },
+
+    setMagnet(strength) {
+        const ctx = this.context;
+        if (!ctx || ctx.state !== 'running') return;
+        if (!this.enabled || document.hidden) strength = 0;
+        strength = Math.max(0, Math.min(1, strength));
+        if (!this.hum && strength === 0) return;
+        if (!this.hum) {
+            const gain = ctx.createGain();
+            gain.gain.setValueAtTime(0, ctx.currentTime);
+            gain.connect(ctx.destination);
+            const oscillators = ['sine', 'triangle'].map(type => {
+                const oscillator = ctx.createOscillator();
+                oscillator.type = type;
+                oscillator.connect(gain);
+                oscillator.start();
+                return oscillator;
+            });
+            this.hum = { gain, oscillators };
+        }
+        const now = ctx.currentTime;
+        this.hum.gain.gain.setTargetAtTime(0.028 * strength * strength, now, 0.09);
+        this.hum.oscillators.forEach((oscillator, i) => {
+            oscillator.frequency.setTargetAtTime((78 + strength * 82) * (1 + i * 0.018), now, 0.12);
+        });
     },
 
     stop() {
+        if (this.thruster) {
+            this.thruster.noise.stop();
+            this.thruster.oscillator.stop();
+            this.thruster.noise.disconnect();
+            this.thruster.oscillator.disconnect();
+            this.thruster.filter.disconnect();
+            this.thruster.toneGain.disconnect();
+            this.thruster.gain.disconnect();
+            this.thruster = null;
+        }
+        if (this.hum) {
+            this.hum.oscillators.forEach(oscillator => { oscillator.stop(); oscillator.disconnect(); });
+            this.hum.gain.disconnect();
+            this.hum = null;
+        }
         this.voices.forEach(voice => voice.stop());
         this.voices.clear();
     },
@@ -385,7 +463,7 @@ const GAMES = {
         title: 'RESUME MAZE',
         key: '4',
         create: (c, ui) => new MazeGame(c, ui),
-        help: 'ARROWS / WASD MOVE • SPACE JUMP • CLICK OR TAP A PATH • COLLECT DATA, AVOID THE CHASERS',
+        help: 'ARROWS / WASD MOVE • SPACE JUMP • CLICK OR TAP A PATH • DODGE ROBOT, CRACKED MARBLE & MAGNET',
         blurb: 'EXPLORE A 3D WORLD BUILT FROM MY RESUME'
     }
 };

@@ -34,7 +34,9 @@ class MazeGame extends GameEngine {
                 if (x + span > this.cols - 3) { x = 3; row += 3; }
                 this.walls.push({ x: x - 0.5, y: row - 0.5, w: span, word, line });
                 for (let i = x; i < x + span; i++) this.solid.add(`${i},${row}`);
-                this.tokens.push({ x: x + Math.floor((span - 1) / 2), y: row + 1, line, taken: false });
+                for (let column = x; column < x + span; column += 2) {
+                    this.tokens.push({ x: column, y: row + 1, line, taken: false });
+                }
                 x += span + 2;
             });
             row += 3;
@@ -42,8 +44,9 @@ class MazeGame extends GameEngine {
         this.rows = row + 1;
         this.player = { x: 1, y: 1, color: '#ffff78', height: 0, jumpVelocity: 0 };
         this.enemies = [
-            { x: this.cols - 2, y: this.rows - 2, color: '#ff58ae' },
-            { x: 1, y: this.rows - 2, color: '#aa80ff' }
+            { type: 'robot', x: this.cols - 2, y: this.rows - 2, color: '#ef9b46', speed: 0.035 },
+            { type: 'cracked', x: 1, y: this.rows - 2, color: '#ba73ff', speed: 0.052 },
+            { type: 'steel', x: this.cols - 2, y: 1, color: '#7beaff', speed: 0.04 }
         ];
         this.camera = { x: this.cols / 2, y: 0 };
         this.updateCamera(1);
@@ -101,6 +104,7 @@ class MazeGame extends GameEngine {
         const travelX = actor.x - oldX, travelY = actor.y - oldY;
         const distance = Math.hypot(travelX, travelY);
         if (distance > 0) {
+            actor.travel = (actor.travel || 0) + distance;
             const angle = distance / 0.36 / 2;
             const ax = -travelY / distance * Math.sin(angle);
             const ay = travelX / distance * Math.sin(angle);
@@ -167,10 +171,30 @@ class MazeGame extends GameEngine {
         }
         for (const enemy of this.enemies) {
             if (!enemy.route || !enemy.route.length) {
-                enemy.route = this.path(enemy, { x: Math.round(this.player.x), y: Math.round(this.player.y) });
+                let target = { x: Math.round(this.player.x), y: Math.round(this.player.y) };
+                if (enemy.type === 'robot' && Math.hypot(enemy.x - this.player.x, enemy.y - this.player.y) > 8) {
+                    const patrol = [{ x: 1, y: this.rows - 2 }, { x: 1, y: 1 },
+                        { x: this.cols - 2, y: 1 }, { x: this.cols - 2, y: this.rows - 2 }];
+                    enemy.patrolIndex = enemy.patrolIndex || 0;
+                    target = patrol[enemy.patrolIndex];
+                    if (Math.hypot(enemy.x - target.x, enemy.y - target.y) < 0.1) {
+                        enemy.patrolIndex = (enemy.patrolIndex + 1) % patrol.length;
+                        target = patrol[enemy.patrolIndex];
+                    }
+                }
+                enemy.route = this.path(enemy, target);
             }
-            this.follow(enemy, enemy.route, 0.046 * dt);
-            if (!this.invincible && Math.hypot(enemy.x - this.player.x, enemy.y - this.player.y, this.player.height) < 0.65) {
+            this.follow(enemy, enemy.route, enemy.speed * dt);
+            const distance = Math.hypot(enemy.x - this.player.x, enemy.y - this.player.y);
+            if (enemy.type === 'steel' && !this.invincible && this.player.height === 0 && distance > 0.05 && distance < 4.2) {
+                const strength = 1 - distance / 4.2;
+                const pull = 0.04 * strength * strength * dt;
+                this.move(this.player, (enemy.x - this.player.x) / distance * pull, (enemy.y - this.player.y) / distance * pull);
+            }
+            const caught = enemy.type === 'robot'
+                ? distance < 0.7 && this.player.height < 1.05
+                : Math.hypot(enemy.x - this.player.x, enemy.y - this.player.y, this.player.height) < 0.65;
+            if (!this.invincible && caught) {
                 this.lives--;
                 if (!this.lives) {
                     this.gameOver = true;
@@ -321,6 +345,7 @@ class MazeGame extends GameEngine {
     }
 
     drawCharacter(actor, player) {
+        if (actor.type === 'robot') { this.drawRobot(actor); return; }
         const ctx = this.ctx;
         const p = this.project(actor.x, actor.y);
         const r = this.cell * this.zoom * 0.36;
@@ -334,10 +359,25 @@ class MazeGame extends GameEngine {
         ctx.fill();
         ctx.globalAlpha = player && this.invincible && Math.floor(this.clock / 7) % 2 ? 0.35 : 1;
         const gradient = ctx.createRadialGradient(p.x - r * 0.35, cy - r * 0.4, r * 0.08, p.x, cy, r);
-        gradient.addColorStop(0, '#ffffff');
-        gradient.addColorStop(0.25, actor.color);
-        gradient.addColorStop(0.72, player ? '#c4a42a' : '#704b8b');
-        gradient.addColorStop(1, '#101c32');
+        if (actor.type === 'steel') {
+            gradient.addColorStop(0, '#ffffff');
+            gradient.addColorStop(0.22, '#dbe9f3');
+            gradient.addColorStop(0.45, '#344458');
+            gradient.addColorStop(0.52, '#102238');
+            gradient.addColorStop(0.65, '#c2e0ec');
+            gradient.addColorStop(0.85, '#667783');
+            gradient.addColorStop(1, '#152338');
+        } else if (actor.type === 'cracked') {
+            gradient.addColorStop(0, '#715096');
+            gradient.addColorStop(0.3, '#19142b');
+            gradient.addColorStop(0.75, '#070912');
+            gradient.addColorStop(1, '#262039');
+        } else {
+            gradient.addColorStop(0, '#ffffff');
+            gradient.addColorStop(0.25, actor.color);
+            gradient.addColorStop(0.72, '#c4a42a');
+            gradient.addColorStop(1, '#101c32');
+        }
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(p.x, cy, r, 0, Math.PI * 2);
@@ -346,12 +386,14 @@ class MazeGame extends GameEngine {
         const [qx, qy, qz, qw] = actor.roll || [0, 0, 0, 1];
         ctx.lineWidth = r * 0.3;
         ctx.lineCap = 'round';
-        for (const latitude of [-0.55, 0.35]) {
+        for (const latitude of actor.type === 'steel' ? [] : [-0.55, 0.35]) {
             ctx.beginPath();
             let visible = false;
             for (let i = 0; i <= 100; i++) {
                 const t = i / 100 * Math.PI * 2;
-                const lat = latitude + Math.sin(t * 2) * 0.18;
+                const lat = latitude + (actor.type === 'cracked'
+                    ? Math.sin(t * 11) * 0.1 + Math.sin(t * 19) * 0.06
+                    : Math.sin(t * 2) * 0.18);
                 const x = Math.cos(t) * Math.cos(lat), y = Math.sin(t) * Math.cos(lat), z = Math.sin(lat);
                 const tx = 2 * (qy * z - qz * y), ty = 2 * (qz * x - qx * z), tz = 2 * (qx * y - qy * x);
                 const rx = x + qw * tx + qy * tz - qz * ty;
@@ -364,8 +406,12 @@ class MazeGame extends GameEngine {
                 else ctx.moveTo(px, py);
                 visible = true;
             }
-            ctx.strokeStyle = latitude < 0 ? '#ffffffb8' : '#132441b0';
+            ctx.strokeStyle = actor.type === 'cracked' ? '#d695ff' : latitude < 0 ? '#ffffffb8' : '#132441b0';
+            ctx.lineWidth = actor.type === 'cracked' ? Math.max(0.7, r * 0.1) : r * 0.3;
+            ctx.shadowColor = '#b44aff';
+            ctx.shadowBlur = actor.type === 'cracked' ? r * 0.4 : 0;
             ctx.stroke();
+            ctx.shadowBlur = 0;
         }
         const glass = ctx.createRadialGradient(p.x - r * 0.35, cy - r * 0.45, 0, p.x - r * 0.35, cy - r * 0.45, r * 0.5);
         glass.addColorStop(0, '#fffffff0');
@@ -381,7 +427,113 @@ class MazeGame extends GameEngine {
         ctx.restore();
     }
 
+    drawRobot(actor) {
+        const ctx = this.ctx;
+        const p = this.project(actor.x, actor.y);
+        const step = Math.sin((actor.travel || 0) * 12);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        const unit = this.cell * this.zoom;
+        ctx.scale(unit, unit);
+        ctx.fillStyle = '#0009';
+        ctx.beginPath(); ctx.ellipse(0, 0.04, 0.65, 0.2, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.save();
+        ctx.translate(0.4, -0.84);
+        ctx.rotate((actor.travel || 0) * 2);
+        ctx.fillStyle = '#ca983b';
+        ctx.fillRect(-0.05, -0.3, 0.1, 0.6);
+        ctx.lineWidth = 0.07;
+        ctx.strokeStyle = '#ffe1a2';
+        for (const y of [-0.22, 0.22]) {
+            ctx.beginPath(); ctx.ellipse(0, y, 0.12, 0.1, 0, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.restore();
+        ctx.fillStyle = '#d27b35';
+        ctx.fillRect(-0.32, -0.13 + step * 0.035, 0.25, 0.16);
+        ctx.fillRect(0.08, -0.13 - step * 0.035, 0.25, 0.16);
+        ctx.fillStyle = '#173442';
+        ctx.fillRect(-0.34, -0.02 + step * 0.035, 0.29, 0.08);
+        ctx.fillRect(0.06, -0.02 - step * 0.035, 0.29, 0.08);
+        const body = ctx.createLinearGradient(-0.3, 0, 0.35, 0);
+        body.addColorStop(0, '#58b3b5'); body.addColorStop(0.65, '#27737d'); body.addColorStop(1, '#143f50');
+        ctx.fillStyle = body;
+        ctx.fillRect(-0.31, -0.69, 0.62, 0.56);
+        ctx.strokeStyle = '#e5974c'; ctx.lineWidth = 0.045;
+        ctx.strokeRect(-0.31, -0.69, 0.62, 0.56);
+        ctx.fillStyle = '#102b3b';
+        ctx.fillRect(-0.18, -0.56, 0.36, 0.28);
+        ctx.fillStyle = '#b3a46c';
+        for (let i = 0; i < 3; i++) ctx.fillRect(-0.14, -0.52 + i * 0.08, 0.28, 0.025);
+        ctx.fillStyle = body;
+        ctx.fillRect(-0.34, -1.18, 0.68, 0.43);
+        ctx.strokeRect(-0.34, -1.18, 0.68, 0.43);
+        ctx.fillStyle = '#163342'; ctx.fillRect(-0.25, -1.1, 0.5, 0.23);
+        ctx.fillStyle = '#ff70dc'; ctx.shadowColor = '#ff21d5'; ctx.shadowBlur = unit * 0.15;
+        for (const x of [-0.14, 0.14]) {
+            ctx.beginPath(); ctx.arc(x, -0.99, 0.075, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#e5974c'; ctx.lineWidth = 0.09;
+        for (const side of [-1, 1]) {
+            const reach = step * 0.04 * side;
+            ctx.beginPath(); ctx.moveTo(side * 0.34, -0.58); ctx.lineTo(side * 0.5, -0.4 + reach); ctx.stroke();
+            ctx.strokeStyle = '#89b2b3'; ctx.lineWidth = 0.065;
+            ctx.beginPath(); ctx.arc(side * 0.55, -0.29 + reach, 0.14, Math.PI * 0.15, Math.PI * 1.8); ctx.stroke();
+            ctx.strokeStyle = '#e5974c'; ctx.lineWidth = 0.09;
+        }
+        ctx.restore();
+    }
+
+    drawMagnet(actor) {
+        const ctx = this.ctx;
+        const p = this.project(actor.x, actor.y);
+        const s = this.cell * this.zoom;
+        const distance = Math.hypot(actor.x - this.player.x, actor.y - this.player.y);
+        const active = !this.invincible && this.player.height === 0 && distance < 4.2;
+        ctx.save();
+        ctx.strokeStyle = active ? '#7cefffaa' : '#53d9ff40';
+        ctx.lineWidth = active ? 1.5 : 1;
+        for (let i = 0; i < 3; i++) {
+            const radius = (0.55 + ((this.clock / 90 + i / 3) % 1) * 3.65) * s;
+            ctx.beginPath(); ctx.ellipse(p.x, p.y, radius, radius * 0.55, -0.1, 0, Math.PI * 2); ctx.stroke();
+        }
+        for (let i = 0; i < 5; i++) {
+            const t = i / 5 * Math.PI * 2 + this.clock * 0.025;
+            ctx.fillStyle = '#c4e9f7';
+            ctx.fillRect(p.x + Math.cos(t) * s * 0.75, p.y - s * 0.3 + Math.sin(t) * s * 0.4, s * 0.07, s * 0.07);
+        }
+        ctx.restore();
+    }
+
+    drawToken(token) {
+        const ctx = this.ctx;
+        const p = this.project(token.x, token.y);
+        const r = this.cell * this.zoom * 0.24;
+        const cy = p.y - r;
+        ctx.save();
+        ctx.fillStyle = '#0009';
+        ctx.beginPath();
+        ctx.ellipse(p.x + r * 0.25, p.y + r * 0.1, r * 1.1, r * 0.35, 0, 0, Math.PI * 2);
+        ctx.fill();
+        const bead = ctx.createRadialGradient(p.x - r * 0.35, cy - r * 0.4, 0, p.x, cy, r);
+        bead.addColorStop(0, '#ffffff');
+        bead.addColorStop(0.3, '#b9ffff');
+        bead.addColorStop(0.6, '#39cbdc');
+        bead.addColorStop(1, '#14445e');
+        ctx.fillStyle = bead;
+        ctx.beginPath(); ctx.arc(p.x, cy, r, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#d9ffffa0';
+        ctx.lineWidth = Math.max(0.5, r * 0.08);
+        ctx.stroke();
+        ctx.fillStyle = '#ffffffd0';
+        ctx.beginPath(); ctx.arc(p.x - r * 0.32, cy - r * 0.38, r * 0.2, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
     draw() {
+        const magnet = this.enemies.find(e => e.type === 'steel');
+        const proximity = magnet ? Math.max(0, 1 - Math.hypot(magnet.x - this.player.x, magnet.y - this.player.y) / 8) : 0;
+        ArcadeAudio.setMagnet(this.frozen || this.gameOver ? 0 : proximity);
         const ctx = this.ctx;
         ctx.save();
         this.polygon([[0, 0], [this.cols - 1, 0], [this.cols - 1, this.rows - 1], [0, this.rows - 1]].map(([x, y]) => this.project(x, y)), '#0a172b', '#387791');
@@ -394,14 +546,9 @@ class MazeGame extends GameEngine {
             const a = this.project(0, y), b = this.project(this.cols - 1, y);
             ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
         }
-        for (const token of this.tokens) {
-            if (token.taken) continue;
-            const p = this.project(token.x, token.y, 0.12);
-            if (p.y < 25 || p.y > this.height + 30) continue;
-            const r = 3 * this.zoom;
-            this.polygon([{ x: p.x, y: p.y - r }, { x: p.x + r, y: p.y }, { x: p.x, y: p.y + r }, { x: p.x - r, y: p.y }], '#b5ffff');
-        }
+        this.enemies.filter(e => e.type === 'steel').forEach(e => this.drawMagnet(e));
         const objects = [
+            ...this.tokens.filter(t => !t.taken).map(t => ({ y: t.y, draw: () => this.drawToken(t) })),
             ...this.walls.map(w => ({ y: w.y + 1, draw: () => this.drawWord(w) })),
             ...this.enemies.map(e => ({ y: e.y, draw: () => this.drawCharacter(e, false) })),
             { y: this.player.y + this.player.height * 0.7, draw: () => this.drawCharacter(this.player, true) }
@@ -414,7 +561,7 @@ class MazeGame extends GameEngine {
         ctx.font = `10px "VT323", monospace`;
         ctx.fillStyle = '#c5ffff';
         ctx.textAlign = 'left';
-        ctx.fillText(`DATA ${this.tokens.filter(t => t.taken).length}/${this.tokens.length}  •  TAP A PATH TO WALK`, 10, this.height - 12);
+        ctx.fillText(`DATA ${this.tokens.filter(t => t.taken).length}/${this.tokens.length}  •  SPACE: JUMP FREE OF MAGNETS`, 10, this.height - 12);
         ctx.restore();
     }
 

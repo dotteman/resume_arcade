@@ -244,6 +244,7 @@ class AsteroidsGame extends GameEngine {
 
     // ---------- draw ----------
     draw() {
+        ArcadeAudio.setThruster(!this.frozen && !this.gameOver && this.ship.alive && this.thrusting);
         const ctx = this.ctx;
         ctx.save();
         ctx.font = `${this.rockFont}px ${FONT}`;
