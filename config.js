@@ -6,94 +6,100 @@
 // while the "READ RESUME" view shows it exactly as written.
 
 const RESUME_CONFIG = {
-    // Personal Info
-    personal: {
-        name: "DAVE OTTEMAN",
-        title: "DEVOPS ENGINEER",
-        email: "dave.otteman@gmail.com",
-        location: "PORTLAND, OR",
-        linkedin: "linkedin.com/in/daveotteman",
-        github: "github.com/dotteman",
-        // Optional: path to a PDF in this repo, e.g. "Dave_Otteman_Resume.pdf".
-        // When set, a DOWNLOAD PDF button appears in the resume view.
-        resumePdf: ""
+    "personal": {
+        "name": "Dave Otteman",
+        "title": "DevOps Engineer",
+        "email": "dave.otteman@gmail.com",
+        "location": "Portland, OR",
+        "linkedin": "linkedin.com/in/dave-otteman-59b03b16/",
+        "github": "github.com/dotteman",
+        "resumePdf": ""
     },
-
-    // Skills (will be displayed as skill tags)
-    skills: [
-        "AZURE",
-        "TERRAFORM",
-        "ANSIBLE",
-        "KUBERNETES",
-        "VMWARE VSPHERE",
-        "CI/CD PIPELINES",
-        "POWERSHELL",
-        "BASH",
-        "PYTHON",
-        "LINUX (RED HAT/UBUNTU)"
+    "skills": [
+        "Azure",
+        "Terraform",
+        "Ansible",
+        "Kubernetes",
+        "VMware vSphere",
+        "Azure DevOps & CI/CD pipelines",
+        "PowerShell",
+        "Bash",
+        "Python",
+        "Linux (Red Hat/Ubuntu)",
+        "Claude (Teams/Enterprise)",
+        "Microsoft Copilot",
+        "AI-assisted development & troubleshooting",
+        "Business workflow automation",
+        "Security review collaboration"
     ],
-
-    // Work Experience
-    experience: [
+    "experience": [
         {
-            title: "DEVOPS ENGINEER",
-            company: "BBSI",
-            period: "MARCH 2020 - PRESENT",
-            achievements: [
-                "SUPPORT HYBRID INFRASTRUCTURE WITH LOCAL DATACENTER AND AZURE CLOUD",
-                "MANAGE VMWARE VSPHERE AND AZURE BUSINESS APPLICATIONS",
-                "BUILT CI/CD PIPELINES USING AZURE DEVOPS",
-                "IMPLEMENTED IAC USING TERRAFORM AND ANSIBLE"
+            "title": "DevOps Engineer",
+            "company": "BBSI",
+            "period": "March 2020 – Present",
+            "achievements": [
+                "Built an automated, self-service audit report in under an hour using AI tools and Azure DevOps pipelines, enabling the audit team to generate reports independently and removing their dependency on engineering for routine reporting.",
+                "Use Claude and Microsoft Copilot to develop code and troubleshoot everyday technical problems, reducing resolution time from hours or days to minutes for selected tasks.",
+                "Create AI-assisted automation that streamlines business workflows and reduces repetitive manual work.",
+                "Work alongside the security team, using AI tools to support code reviews and identify potential security weaknesses for further investigation.",
+                "Support hybrid infrastructure spanning an on-premises data center and Azure cloud, including VMware vSphere and business applications.",
+                "Build CI/CD pipelines in Azure DevOps and implement infrastructure as code using Terraform and Ansible."
             ]
         },
         {
-            title: "IAAS ENGINEER",
-            company: "COLUMBIA SPORTSWEAR",
-            period: "APRIL 2019 - MARCH 2020",
-            achievements: [
-                "SUPPORTED IAAS INFRASTRUCTURE IN PUBLIC AND PRIVATE CLOUD",
-                "ENFORCED MFA POLICIES AND CONDITIONAL ACCESS",
-                "REMOVED BASIC AUTHENTICATION ON OFFICE 365 PLATFORM"
+            "title": "IaaS Engineer",
+            "company": "Columbia Sportswear",
+            "period": "April 2019 – March 2020",
+            "achievements": [
+                "Supported IaaS infrastructure in public and private clouds.",
+                "Enforced multifactor authentication policies and conditional access.",
+                "Removed basic authentication from the Office 365 platform."
             ]
         },
         {
-            title: "SYSTEM ENGINEER - CLOUD AND CONNECTIVITY",
-            company: "ADIDAS",
-            period: "2017 - 2019",
-            achievements: [
-                "SUPPORTED GLOBAL INFRASTRUCTURE AND HARDWARE MAINTENANCE",
-                "CONTRIBUTED TO DATA CENTER MIGRATION FOR REEBOK AND PDX",
-                "INCREASED AUTOMATION THROUGH POWERSHELL SCRIPTING"
+            "title": "System Engineer – Cloud and Connectivity",
+            "company": "adidas",
+            "period": "2017 – 2019",
+            "achievements": [
+                "Supported global infrastructure and hardware maintenance.",
+                "Contributed to data center migrations for Reebok and PDX.",
+                "Expanded infrastructure automation through PowerShell scripting."
             ]
         },
         {
-            title: "SYSTEM ADMINISTRATOR III",
-            company: "NW NATURAL",
-            period: "2000 - 2017",
-            achievements: [
-                "ARCHITECTED WINDOWS SERVER AND ACTIVE DIRECTORY INFRASTRUCTURE",
-                "MANAGED EXCHANGE AND SHAREPOINT MIGRATIONS",
-                "MIGRATED PHYSICAL INFRASTRUCTURE TO VIRTUAL ENVIRONMENTS"
+            "title": "System Administrator III",
+            "company": "NW Natural",
+            "period": "2000 – 2017",
+            "achievements": [
+                "Architected Windows Server and Active Directory infrastructure.",
+                "Managed Exchange and SharePoint migrations.",
+                "Migrated physical infrastructure to virtual environments."
             ]
         }
     ],
-
-    // Education
-    education: [
+    "education": [
         {
-            degree: "BS EXERCISE PHYSIOLOGY",
-            school: "OREGON STATE UNIVERSITY",
-            year: "1992"
+            "degree": "BS, Exercise Physiology",
+            "school": "Oregon State University",
+            "year": "1992"
         }
     ],
-
-    // Projects (optional)
-    projects: [
+    "projects": [
         {
-            name: "AUTOMATED PROVISIONING",
-            description: "TERRAFORM & ANSIBLE HYBRID CLOUD DEPLOYMENT",
-            tech: "TERRAFORM"
+            "name": "Resume Arcade",
+            "description": "Developed an interactive resume with AI assistance, featuring four playable arcade games, including a maze built from extruded resume text. Iterated on gameplay, usability, and validation.",
+            "tech": "JavaScript, HTML, CSS, AI-assisted development"
+        },
+        {
+            "name": "Automated Provisioning",
+            "description": "Hybrid cloud deployment using Terraform and Ansible.",
+            "tech": "Terraform, Ansible"
         }
+    ],
+    "summary": [
+        "DevOps engineer with more than 20 years of experience in systems administration, hybrid infrastructure, and automation.",
+        "Use Claude and Microsoft Copilot to accelerate troubleshooting, develop code, and automate business workflows.",
+        "Enjoy making complex technology easier to use, helping people solve problems, and collaborating with security teams."
     ]
 };
 
@@ -137,6 +143,8 @@ function buildResumeSections() {
 
     const header = [p.name, p.title, p.location, p.email, p.linkedin, p.github].filter(Boolean);
     if (header.length) sections.push({ title: 'PLAYER 1', lines: header });
+
+    if (r.summary && r.summary.length) sections.push({ title: 'SUMMARY', lines: r.summary });
 
     if (r.skills && r.skills.length) sections.push({ title: 'SKILLS', lines: r.skills });
 

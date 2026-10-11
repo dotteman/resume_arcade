@@ -232,6 +232,9 @@ const UI = {
                 <ul class="rv-contact">${contact.join('')}</ul>
             </header>`;
 
+        if (r.summary && r.summary.length) {
+            html += `<section><h3>Summary</h3><p>${escapeHtml(r.summary.join(' '))}</p></section>`;
+        }
         if (r.skills && r.skills.length) {
             html += `<section><h3>Skills</h3><ul class="rv-skills">${r.skills.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul></section>`;
         }
