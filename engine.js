@@ -7,6 +7,69 @@
 
 const FONT = '"Press Start 2P", monospace';
 
+const ArcadeAudio = {
+    enabled: true,
+    context: null,
+    voices: new Set(),
+    lastHit: -Infinity,
+    sounds: {
+        select: [[440, 440, 0.07, 0], [880, 880, 0.1, 0.08]],
+        jump: [[180, 950, 0.22, 0]],
+        land: [[140, 65, 0.08, 0]],
+        hit: [[900, 1300, 0.06, 0], [1500, 1500, 0.06, 0.06]],
+        fire: [[620, 110, 0.08, 0]],
+        hurt: [[180, 55, 0.28, 0]],
+        over: [[330, 300, 0.16, 0], [260, 230, 0.16, 0.18], [196, 90, 0.4, 0.36]],
+        win: [[523, 523, 0.1, 0], [659, 659, 0.1, 0.12], [784, 784, 0.1, 0.24], [1047, 1047, 0.3, 0.36]]
+    },
+
+    unlock() {
+        if (!this.enabled || this.context) return;
+        const Audio = window.AudioContext || window.webkitAudioContext;
+        if (!Audio) return;
+        try { this.context = new Audio(); } catch (_) { return; }
+    },
+
+    stop() {
+        this.voices.forEach(voice => voice.stop());
+        this.voices.clear();
+    },
+
+    async play(name) {
+        if (!this.enabled || !this.context || document.hidden) return;
+        const ctx = this.context;
+        if (ctx.state === 'suspended') {
+            try { await ctx.resume(); } catch (_) { return; }
+        }
+        if (!this.enabled || ctx.state !== 'running' || document.hidden) return;
+        const now = ctx.currentTime;
+        if (name === 'hit') {
+            if (now - this.lastHit < 0.055) return;
+            this.lastHit = now;
+        }
+        this.sounds[name].forEach(([frequency, end, duration, delay]) => {
+            const oscillator = ctx.createOscillator();
+            const gain = ctx.createGain();
+            oscillator.type = name === 'hurt' || name === 'over' ? 'sawtooth' : 'square';
+            oscillator.frequency.setValueAtTime(frequency, now + delay);
+            oscillator.frequency.exponentialRampToValueAtTime(end, now + delay + duration);
+            gain.gain.setValueAtTime(0, now + delay);
+            gain.gain.linearRampToValueAtTime(0.035, now + delay + 0.005);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + duration);
+            oscillator.connect(gain);
+            gain.connect(ctx.destination);
+            this.voices.add(oscillator);
+            oscillator.onended = () => {
+                this.voices.delete(oscillator);
+                oscillator.disconnect();
+                gain.disconnect();
+            };
+            oscillator.start(now + delay);
+            oscillator.stop(now + delay + duration + 0.01);
+        });
+    }
+};
+
 class GameEngine {
     constructor(canvas, ui) {
         this.canvas = canvas;
@@ -138,6 +201,7 @@ class GameEngine {
 
     destroy() {
         this.running = false;
+        ArcadeAudio.stop();
         cancelAnimationFrame(this.raf);
         this.abort.abort();
         this.resizeObserver.disconnect();
@@ -146,6 +210,7 @@ class GameEngine {
 
     togglePause() {
         this.paused = !this.paused;
+        if (this.paused) ArcadeAudio.stop();
         this.keys = {};
         this.ui.onPauseChanged(this.paused);
     }
@@ -168,6 +233,7 @@ class GameEngine {
     }
 
     updateScore(points) {
+        ArcadeAudio.play('hit');
         this.score += points;
         this.hits++;
         this.ui.setScore(this.score, this.hits);
@@ -187,6 +253,8 @@ class GameEngine {
 
     // ---------- banners & text ----------
     showBanner(text, sub = '', frames = 90, onDone = null, freeze = true) {
+        if (text.includes('CLEARED') || text.includes('COMPLETE')) ArcadeAudio.play('win');
+        if (text === 'GAME OVER' || text === 'CAUGHT!') ArcadeAudio.play('over');
         this.banner = { text, sub, time: frames, onDone, freeze };
     }
 
@@ -317,7 +385,7 @@ const GAMES = {
         title: 'RESUME MAZE',
         key: '4',
         create: (c, ui) => new MazeGame(c, ui),
-        help: 'ARROWS / WASD MOVE • CLICK OR TAP A PATH • COLLECT DATA, AVOID THE CHASERS',
+        help: 'ARROWS / WASD MOVE • SPACE JUMP • CLICK OR TAP A PATH • COLLECT DATA, AVOID THE CHASERS',
         blurb: 'EXPLORE A 3D WORLD BUILT FROM MY RESUME'
     }
 };

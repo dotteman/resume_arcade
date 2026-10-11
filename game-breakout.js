@@ -114,6 +114,7 @@ class BreakoutGame extends GameEngine {
 
     launch() {
         if (!this.ball.stuck || this.frozen) return;
+        ArcadeAudio.play('fire');
         const angle = (-90 + (Math.random() * 50 - 25)) * Math.PI / 180;
         this.ball.vx = Math.cos(angle) * this.speed;
         this.ball.vy = Math.sin(angle) * this.speed;
@@ -244,6 +245,7 @@ class BreakoutGame extends GameEngine {
     }
 
     loseLife() {
+        if (this.lives > 1) ArcadeAudio.play('hurt');
         this.lives--;
         this.createParticles(this.ball.x, this.height - 10, this.theme.secondary, 25);
         if (this.lives <= 0) {

@@ -6,7 +6,12 @@ class MazeGame extends GameEngine {
         this.lives = GAME_CONFIG.difficulty.lives;
         this.clock = 0;
         this.onKeyDown = e => {
-            if (e.code === 'Space' && this.gameOver) this.restart();
+            if (e.code !== 'Space' || e.repeat) return;
+            if (this.gameOver) { this.restart(); return; }
+            if (!this.frozen && this.player.height === 0) {
+                this.player.jumpVelocity = 0.115;
+                ArcadeAudio.play('jump');
+            }
         };
         this.onPointerDown = p => {
             if (this.gameOver) { this.restart(); return; }
@@ -35,7 +40,7 @@ class MazeGame extends GameEngine {
             row += 3;
         });
         this.rows = row + 1;
-        this.player = { x: 1, y: 1, color: '#ffff78' };
+        this.player = { x: 1, y: 1, color: '#ffff78', height: 0, jumpVelocity: 0 };
         this.enemies = [
             { x: this.cols - 2, y: this.rows - 2, color: '#ff58ae' },
             { x: 1, y: this.rows - 2, color: '#aa80ff' }
@@ -90,8 +95,22 @@ class MazeGame extends GameEngine {
         const r = 0.28;
         const fits = (x, y) => [-r, r].every(ox => [-r, r].every(oy =>
             this.walkable(Math.round(x + ox), Math.round(y + oy))));
+        const oldX = actor.x, oldY = actor.y;
         if (fits(actor.x + dx, actor.y)) actor.x += dx;
         if (fits(actor.x, actor.y + dy)) actor.y += dy;
+        const travelX = actor.x - oldX, travelY = actor.y - oldY;
+        const distance = Math.hypot(travelX, travelY);
+        if (distance > 0) {
+            const angle = distance / 0.36 / 2;
+            const ax = -travelY / distance * Math.sin(angle);
+            const ay = travelX / distance * Math.sin(angle);
+            const aw = Math.cos(angle);
+            const [x, y, z, w] = actor.roll || [0, 0, 0, 1];
+            const roll = [ax * w + aw * x + ay * z, ay * w + aw * y - ax * z,
+                aw * z + ax * y - ay * x, aw * w - ax * x - ay * y];
+            const length = Math.hypot(...roll);
+            actor.roll = roll.map(value => value / length);
+        }
     }
 
     follow(actor, route, speed) {
@@ -113,6 +132,14 @@ class MazeGame extends GameEngine {
     update(dt) {
         if (this.frozen || this.gameOver) return;
         this.clock += dt;
+        if (this.player.jumpVelocity || this.player.height) {
+            this.player.height = Math.max(0, this.player.height + this.player.jumpVelocity * dt - 0.0022 * dt * dt);
+            this.player.jumpVelocity -= 0.0044 * dt;
+            if (this.player.height === 0) {
+                this.player.jumpVelocity = 0;
+                ArcadeAudio.play('land');
+            }
+        }
         this.invincible = Math.max(0, this.invincible - dt);
         let dx = Number(!!this.keyRight()) - Number(!!this.keyLeft());
         let dy = Number(!!(this.keys.ArrowDown || this.keys.KeyS)) - Number(!!this.keyUp());
@@ -143,15 +170,18 @@ class MazeGame extends GameEngine {
                 enemy.route = this.path(enemy, { x: Math.round(this.player.x), y: Math.round(this.player.y) });
             }
             this.follow(enemy, enemy.route, 0.046 * dt);
-            if (!this.invincible && Math.hypot(enemy.x - this.player.x, enemy.y - this.player.y) < 0.65) {
+            if (!this.invincible && Math.hypot(enemy.x - this.player.x, enemy.y - this.player.y, this.player.height) < 0.65) {
                 this.lives--;
                 if (!this.lives) {
                     this.gameOver = true;
                     this.showBanner('CAUGHT!', this.isTouch ? 'TAP TO TRY AGAIN' : 'SPACE TO TRY AGAIN', Infinity);
                     return;
                 }
+                ArcadeAudio.play('hurt');
                 this.player.x = 1;
                 this.player.y = 1;
+                this.player.height = 0;
+                this.player.jumpVelocity = 0;
                 this.route = [];
                 this.invincible = 180;
                 this.enemies.forEach(e => { e.route = []; });
@@ -199,51 +229,155 @@ class MazeGame extends GameEngine {
     }
 
     drawWord(wall) {
-        const ctx = this.ctx;
-        const p = this.project(wall.x, wall.y + 0.65);
         const s = this.cell * this.zoom;
-        const color = this.colorForLine(wall.line);
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.transform(1, 0, 0.28 / 0.74, 0.74, 0, 0);
-        ctx.font = `bold ${s * 0.9}px "VT323", monospace`;
-        ctx.textBaseline = 'alphabetic';
-        const width = ctx.measureText(wall.word).width;
-        ctx.scale((wall.w * s - s * 0.15) / width, 1);
-        ctx.fillStyle = '#000711';
-        ctx.fillText(wall.word, s * 0.13, s * 0.22);
-        for (let depth = 0; depth < 13; depth++) {
-            ctx.fillStyle = depth < 8 ? '#16335a' : '#28567e';
-            ctx.fillText(wall.word, 0, -depth * s * 0.035);
+        if (!wall.sprite || wall.spriteScale !== s || wall.spriteDpr !== this.dpr) {
+            const mask = document.createElement('canvas');
+            const ink = mask.getContext('2d');
+            ink.font = '900 18px Arial Black, Arial, sans-serif';
+            mask.width = Math.ceil(ink.measureText(wall.word).width) + 4;
+            mask.height = 22;
+            ink.font = '900 18px Arial Black, Arial, sans-serif';
+            ink.lineWidth = 0.8;
+            ink.strokeText(wall.word, 2, 18);
+            ink.fillText(wall.word, 2, 18);
+            const pixels = ink.getImageData(0, 0, mask.width, mask.height).data;
+            const occupied = (x, y) => x >= 0 && y >= 0 && x < mask.width && y < mask.height
+                && pixels[(y * mask.width + x) * 4 + 3] > 110;
+            const height = 1.15;
+            const margin = 5;
+            const sprite = document.createElement('canvas');
+            const dpr = this.dpr;
+            const width = Math.ceil((wall.w + 0.6) * s + margin * 2);
+            const spriteHeight = Math.ceil((height + 1) * s + margin * 2);
+            sprite.width = width * dpr;
+            sprite.height = spriteHeight * dpr;
+            const ctx = sprite.getContext('2d');
+            ctx.scale(dpr, dpr);
+            const point = (x, y, z) => ({
+                x: margin + (x + 0.28 * y) * s,
+                y: margin + (height + 0.74 * y - z) * s
+            });
+            const face = points => {
+                points.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+                ctx.closePath();
+            };
+            const sx = wall.w / mask.width;
+            const sy = 1 / mask.height;
+            ctx.fillStyle = '#000812';
+            ctx.beginPath();
+            face([point(0.15, 0.25, 0), point(wall.w + 0.15, 0.25, 0),
+                point(wall.w + 0.4, 1.4, 0), point(0.4, 1.4, 0)]);
+            ctx.fill();
+            const front = ctx.createLinearGradient(0, margin, 0, margin + height * s);
+            front.addColorStop(0, '#527a96');
+            front.addColorStop(1, '#21394c');
+            ctx.fillStyle = front;
+            ctx.beginPath();
+            for (let y = 0; y < mask.height; y++) {
+                for (let x = 0; x < mask.width; x++) {
+                    if (!occupied(x, y) || occupied(x, y + 1)) continue;
+                    const start = x;
+                    while (x + 1 < mask.width && occupied(x + 1, y) && !occupied(x + 1, y + 1)) x++;
+                    const left = start * sx, right = (x + 1) * sx, edge = (y + 1) * sy;
+                    face([point(left, edge, 0), point(right, edge, 0),
+                        point(right, edge, height), point(left, edge, height)]);
+                }
+            }
+            ctx.fill();
+            ctx.fillStyle = '#172b40';
+            ctx.beginPath();
+            for (let x = 0; x < mask.width; x++) {
+                for (let y = 0; y < mask.height; y++) {
+                    if (!occupied(x, y) || occupied(x + 1, y)) continue;
+                    const start = y;
+                    while (y + 1 < mask.height && occupied(x, y + 1) && !occupied(x + 1, y + 1)) y++;
+                    const edge = (x + 1) * sx, back = start * sy, frontY = (y + 1) * sy;
+                    face([point(edge, back, 0), point(edge, frontY, 0),
+                        point(edge, frontY, height), point(edge, back, height)]);
+                }
+            }
+            ctx.fill();
+            ctx.fillStyle = this.colorForLine(wall.line);
+            ctx.beginPath();
+            for (let y = 0; y < mask.height; y++) {
+                for (let x = 0; x < mask.width; x++) {
+                    if (!occupied(x, y)) continue;
+                    const start = x;
+                    while (x + 1 < mask.width && occupied(x + 1, y)) x++;
+                    const left = start * sx, right = (x + 1) * sx;
+                    face([point(left, y * sy, height), point(right, y * sy, height),
+                        point(right, (y + 1) * sy, height), point(left, (y + 1) * sy, height)]);
+                }
+            }
+            ctx.fill();
+            wall.sprite = sprite;
+            wall.spriteScale = s;
+            wall.spriteDpr = this.dpr;
+            wall.spriteWidth = width;
+            wall.spriteHeight = spriteHeight;
         }
-        ctx.fillStyle = color;
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 5;
-        ctx.fillText(wall.word, 0, -13 * s * 0.035);
-        ctx.restore();
+        const p = this.project(wall.x, wall.y);
+        this.ctx.drawImage(wall.sprite, p.x - 5, p.y - 5 - s * 1.15, wall.spriteWidth, wall.spriteHeight);
     }
 
     drawCharacter(actor, player) {
         const ctx = this.ctx;
         const p = this.project(actor.x, actor.y);
-        const r = this.cell * this.zoom * 0.31;
+        const r = this.cell * this.zoom * 0.36;
+        const height = player ? actor.height : 0;
+        const cy = p.y - r - height * this.cell * this.zoom;
         ctx.save();
-        ctx.fillStyle = '#0008';
+        ctx.fillStyle = `rgba(0, 0, 0, ${0.65 / (1 + height)})`;
         ctx.beginPath();
-        ctx.ellipse(p.x + 3, p.y + 4, r * 1.3, r * 0.55, 0, 0, Math.PI * 2);
+        const shadowScale = 1 + height * 0.25;
+        ctx.ellipse(p.x + r * 0.25, p.y + r * 0.1, r * 1.2 * shadowScale, r * 0.35 * shadowScale, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = player && this.invincible && Math.floor(this.clock / 7) % 2 ? 0.35 : 1;
-        const gradient = ctx.createRadialGradient(p.x - r * 0.3, p.y - r, 1, p.x, p.y - r * 0.5, r * 1.4);
+        const gradient = ctx.createRadialGradient(p.x - r * 0.35, cy - r * 0.4, r * 0.08, p.x, cy, r);
         gradient.addColorStop(0, '#ffffff');
-        gradient.addColorStop(0.3, actor.color);
-        gradient.addColorStop(1, player ? '#ae7900' : '#532861');
+        gradient.addColorStop(0.25, actor.color);
+        gradient.addColorStop(0.72, player ? '#c4a42a' : '#704b8b');
+        gradient.addColorStop(1, '#101c32');
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(p.x, p.y - r * 0.65 + Math.sin(this.clock * 0.15) * r * 0.1, r, 0, Math.PI * 2);
+        ctx.arc(p.x, cy, r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#10152a';
-        ctx.fillRect(p.x - r * 0.5, p.y - r, r * 0.25, r * 0.4);
-        ctx.fillRect(p.x + r * 0.2, p.y - r, r * 0.25, r * 0.4);
+        ctx.clip();
+        const [qx, qy, qz, qw] = actor.roll || [0, 0, 0, 1];
+        ctx.lineWidth = r * 0.3;
+        ctx.lineCap = 'round';
+        for (const latitude of [-0.55, 0.35]) {
+            ctx.beginPath();
+            let visible = false;
+            for (let i = 0; i <= 100; i++) {
+                const t = i / 100 * Math.PI * 2;
+                const lat = latitude + Math.sin(t * 2) * 0.18;
+                const x = Math.cos(t) * Math.cos(lat), y = Math.sin(t) * Math.cos(lat), z = Math.sin(lat);
+                const tx = 2 * (qy * z - qz * y), ty = 2 * (qz * x - qx * z), tz = 2 * (qx * y - qy * x);
+                const rx = x + qw * tx + qy * tz - qz * ty;
+                const ry = y + qw * ty + qz * tx - qx * tz;
+                const rz = z + qw * tz + qx * ty - qy * tx;
+                const facing = ry * 0.673 + rz * 0.74;
+                if (facing < 0.05) { visible = false; continue; }
+                const px = p.x + rx * r, py = cy + (ry * 0.74 - rz * 0.673) * r;
+                if (visible) ctx.lineTo(px, py);
+                else ctx.moveTo(px, py);
+                visible = true;
+            }
+            ctx.strokeStyle = latitude < 0 ? '#ffffffb8' : '#132441b0';
+            ctx.stroke();
+        }
+        const glass = ctx.createRadialGradient(p.x - r * 0.35, cy - r * 0.45, 0, p.x - r * 0.35, cy - r * 0.45, r * 0.5);
+        glass.addColorStop(0, '#fffffff0');
+        glass.addColorStop(0.3, '#ffffff70');
+        glass.addColorStop(1, '#ffffff00');
+        ctx.fillStyle = glass;
+        ctx.fillRect(p.x - r, cy - r, r * 2, r * 2);
+        ctx.strokeStyle = '#bcefff90';
+        ctx.lineWidth = Math.max(0.6, r * 0.07);
+        ctx.beginPath();
+        ctx.arc(p.x, cy, r * 0.91, Math.PI * 0.1, Math.PI * 0.75);
+        ctx.stroke();
         ctx.restore();
     }
 
@@ -270,7 +404,7 @@ class MazeGame extends GameEngine {
         const objects = [
             ...this.walls.map(w => ({ y: w.y + 1, draw: () => this.drawWord(w) })),
             ...this.enemies.map(e => ({ y: e.y, draw: () => this.drawCharacter(e, false) })),
-            { y: this.player.y, draw: () => this.drawCharacter(this.player, true) }
+            { y: this.player.y + this.player.height * 0.7, draw: () => this.drawCharacter(this.player, true) }
         ];
         objects.sort((a, b) => a.y - b.y).forEach(o => {
             const p = this.project(0, o.y);

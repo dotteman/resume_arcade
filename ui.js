@@ -36,6 +36,9 @@ const UI = {
         let crt = 'on';
         try { crt = localStorage.getItem('resumeArcade.crt') || 'on'; } catch (_) { /* storage blocked */ }
         this.setCrt(crt !== 'off', false);
+        let sound = 'on';
+        try { sound = localStorage.getItem('resumeArcade.sound') || 'on'; } catch (_) {}
+        this.setSound(sound !== 'off', false);
     },
 
     setCrt(on, save = true) {
@@ -44,6 +47,16 @@ const UI = {
         this.$('btnCrt').setAttribute('aria-pressed', String(on));
         if (save) {
             try { localStorage.setItem('resumeArcade.crt', on ? 'on' : 'off'); } catch (_) { /* ignore */ }
+        }
+    },
+
+    setSound(on, save = true) {
+        ArcadeAudio.enabled = on;
+        this.$('btnSound').textContent = `[V] SOUND: ${on ? 'ON' : 'OFF'}`;
+        this.$('btnSound').setAttribute('aria-pressed', String(on));
+        if (!on) ArcadeAudio.stop();
+        if (save) {
+            try { localStorage.setItem('resumeArcade.sound', on ? 'on' : 'off'); } catch (_) {}
         }
     },
 
@@ -90,6 +103,7 @@ const UI = {
         history.replaceState(null, '', `${location.pathname}?game=${key}`);
         this.game = def.create(this.canvas, this);
         this.game.start();
+        ArcadeAudio.play('select');
         this.canvas.focus({ preventScroll: true });
     },
 
@@ -106,6 +120,16 @@ const UI = {
 
     // ---------- controls ----------
     bindControls() {
+        document.addEventListener('pointerdown', () => ArcadeAudio.unlock(), true);
+        document.addEventListener('keydown', e => {
+            if (!e.ctrlKey && !e.metaKey && !e.altKey) ArcadeAudio.unlock();
+        }, true);
+        this.$('btnSound').addEventListener('click', () => {
+            this.setSound(!ArcadeAudio.enabled);
+            ArcadeAudio.unlock();
+            if (ArcadeAudio.enabled) ArcadeAudio.play('select');
+            this.$('btnSound').blur();
+        });
         const blurAfter = (fn) => (e) => { fn(); e.currentTarget.blur(); };
         this.$('btnResume').addEventListener('click', blurAfter(() => this.openResume()));
         this.$('btnMenu').addEventListener('click', blurAfter(() => this.showMenu()));
@@ -124,6 +148,12 @@ const UI = {
             }
             switch (e.code) {
                 case 'KeyR': this.openResume(); break;
+                case 'KeyV':
+                    if (e.repeat) break;
+                    this.setSound(!ArcadeAudio.enabled);
+                    ArcadeAudio.unlock();
+                    if (ArcadeAudio.enabled) ArcadeAudio.play('select');
+                    break;
                 case 'KeyC': this.setCrt(document.body.classList.contains('no-crt')); break;
                 case 'KeyM': if (this.game) this.showMenu(); break;
                 case 'KeyP':

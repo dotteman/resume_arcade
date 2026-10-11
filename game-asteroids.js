@@ -106,6 +106,7 @@ class AsteroidsGame extends GameEngine {
 
     shoot() {
         if (this.frozen || this.gameOver || !this.ship.alive || this.cooldown > 0 || this.bullets.length >= 8) return;
+        ArcadeAudio.play('fire');
         const s = this.ship;
         const speed = GAME_CONFIG.difficulty.bulletSpeed;
         this.bullets.push({
@@ -228,6 +229,7 @@ class AsteroidsGame extends GameEngine {
     }
 
     shipDestroyed() {
+        if (this.lives > 1) ArcadeAudio.play('hurt');
         const s = this.ship;
         this.createParticles(s.x, s.y, this.theme.primary, 30);
         this.lives--;

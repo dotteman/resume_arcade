@@ -98,6 +98,7 @@ class InvadersGame extends GameEngine {
 
     shoot() {
         if (this.frozen || this.cooldown > 0 || this.bullets.length >= 6) return;
+        ArcadeAudio.play('fire');
         this.bullets.push({
             x: this.player.x + this.player.w / 2 - 2,
             y: this.player.y,
