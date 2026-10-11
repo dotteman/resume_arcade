@@ -1,249 +1,309 @@
 // ============================================
-// ASTEROIDS GAME - Classic asteroids style
+// ASTEROIDS - resume words drift in space, one section per wave
 // ============================================
 
 class AsteroidsGame extends GameEngine {
-    constructor(canvasId) {
-        super(canvasId);
-        
+    constructor(canvas, ui) {
+        super(canvas, ui);
+        const d = GAME_CONFIG.difficulty;
+
         this.ship = {
-            x: 0,
-            y: 0,
-            angle: -Math.PI / 2,
-            vx: 0,
-            vy: 0,
-            size: 20,
-            rotationSpeed: 0.08,
-            thrust: 0.15,
-            friction: 0.99,
-            color: GAME_CONFIG.theme.primary
+            x: 0, y: 0, angle: -Math.PI / 2, vx: 0, vy: 0, size: 16,
+            rotationSpeed: 0.075, thrust: 0.14, friction: 0.99, invulnerable: 0, alive: true
         };
-        
+        this.maxLives = d.lives;
+        this.lives = d.lives;
+        this.gameOver = false;
         this.bullets = [];
-        this.words = [];
-        this.particles = [];
-        this.resumeText = formatResumeForGame();
-        
-        this.onResize = () => this.resetShipPosition();
-        this.resetShipPosition();
-        this.createWords();
-        
+        this.rocks = [];
+        this.queue = [];
+        this.cooldown = 0;
+        this.rockFont = 14;
+        this.thrusting = false;
+
+        this.onResize = () => this.clampShip();
         this.onKeyDown = (e) => {
-            if (e.key === ' ') {
-                e.preventDefault();
-                this.shoot();
-            }
+            if (e.code !== 'Space') return;
+            if (this.gameOver) this.continueGame();
+            else if (!e.repeat) this.shoot();
         };
+        this.onPointerDown = () => { if (this.gameOver) this.continueGame(); };
+
+        this.resetShip();
+        this.loadSection(this.sectionIndex);
     }
-    
-    resetShipPosition() {
-        this.ship.x = this.canvas.width / 2;
-        this.ship.y = this.canvas.height / 2;
-        this.ship.vx = 0;
-        this.ship.vy = 0;
+
+    resetShip() {
+        Object.assign(this.ship, {
+            x: this.width / 2, y: this.height / 2, vx: 0, vy: 0,
+            angle: -Math.PI / 2, invulnerable: 150, alive: true
+        });
     }
-    
-    createWords() {
-        this.words = [];
-        
-        // Filter and split resume into words
-        const words = this.resumeText
-            .filter(line => line.trim() !== '')
-            .join(' ')
-            .split(' ')
-            .filter(word => word.length > 0);
-        
-        words.forEach((word, index) => {
+
+    clampShip() {
+        this.ship.x = Math.min(this.ship.x, this.width);
+        this.ship.y = Math.min(this.ship.y, this.height);
+    }
+
+    // ---------- waves ----------
+    loadSection(index) {
+        const section = this.sections[index];
+        this.queue = [];
+        section.lines.forEach(line => {
+            const color = this.colorForLine(line);
+            line.text.split(' ')
+                .filter(w => /[A-Z0-9]/i.test(w))          // drop "*", "-", "&", "|"
+                .forEach(text => this.queue.push({ text, line, color }));
+        });
+        this.spawnBatch();
+    }
+
+    spawnBatch() {
+        const maxRocks = this.width < 600 ? 14 : 26;
+        const batch = this.queue.splice(0, maxRocks);
+        this.rockFont = this.width < 600 ? 11 : 14;
+        this.ctx.font = `${this.rockFont}px ${FONT}`;
+        batch.forEach(w => {
+            const textW = this.ctx.measureText(w.text).width;
             const angle = Math.random() * Math.PI * 2;
-            const speed = 0.5 + Math.random() * 1;
-            
-            this.words.push({
-                text: word,
-                x: Math.random() * this.canvas.width,
-                y: Math.random() * this.canvas.height,
+            const speed = 0.35 + Math.random() * 0.8;
+            const pos = this.spawnPoint();
+            this.rocks.push({
+                ...w,
+                x: pos.x,
+                y: pos.y,
                 vx: Math.cos(angle) * speed,
                 vy: Math.sin(angle) * speed,
-                rotation: Math.random() * Math.PI * 2,
-                rotationSpeed: (Math.random() - 0.5) * 0.05,
-                size: Math.min(word.length * 10, 80),
-                hit: false,
-                color: index % 3 === 0 ? GAME_CONFIG.theme.primary :
-                       index % 3 === 1 ? GAME_CONFIG.theme.secondary :
-                       GAME_CONFIG.theme.accent
+                rot: Math.random() * Math.PI * 2,
+                rs: (Math.random() - 0.5) * 0.03,
+                hw: Math.max(textW / 2, 12) + 4,   // generous minimum hit box
+                hh: Math.max(this.rockFont / 2, 10) + 4
             });
         });
     }
-    
-    shoot() {
-        const bulletSpeed = 8;
-        this.bullets.push({
-            x: this.ship.x + Math.cos(this.ship.angle) * this.ship.size,
-            y: this.ship.y + Math.sin(this.ship.angle) * this.ship.size,
-            vx: Math.cos(this.ship.angle) * bulletSpeed + this.ship.vx,
-            vy: Math.sin(this.ship.angle) * bulletSpeed + this.ship.vy,
-            life: 60,
-            color: GAME_CONFIG.theme.accent
-        });
+
+    // Random point at a safe distance from the ship
+    spawnPoint() {
+        const minDist = Math.min(this.width, this.height) * 0.3;
+        for (let tries = 0; tries < 30; tries++) {
+            const x = Math.random() * this.width;
+            const y = Math.random() * this.height;
+            if (Math.hypot(x - this.ship.x, y - this.ship.y) > minDist) return { x, y };
+        }
+        return { x: Math.random() * this.width, y: 30 };
     }
-    
-    update() {
-        if (!this.isRunning) return;
-        
-        // Rotate ship
-        if (this.keys['ArrowLeft']) {
-            this.ship.angle -= this.ship.rotationSpeed;
+
+    // Is point (px, py) inside the rock's rotated text box (+pad)?
+    hitsRock(rock, px, py, pad = 0) {
+        const dx = px - rock.x;
+        const dy = py - rock.y;
+        const c = Math.cos(-rock.rot);
+        const s = Math.sin(-rock.rot);
+        const lx = dx * c - dy * s;
+        const ly = dx * s + dy * c;
+        return Math.abs(lx) < rock.hw + pad && Math.abs(ly) < rock.hh + pad;
+    }
+
+    shoot() {
+        if (this.frozen || this.gameOver || !this.ship.alive || this.cooldown > 0 || this.bullets.length >= 8) return;
+        const s = this.ship;
+        const speed = GAME_CONFIG.difficulty.bulletSpeed;
+        this.bullets.push({
+            x: s.x + Math.cos(s.angle) * s.size,
+            y: s.y + Math.sin(s.angle) * s.size,
+            vx: Math.cos(s.angle) * speed + s.vx,
+            vy: Math.sin(s.angle) * speed + s.vy,
+            life: 55,
+            dead: false
+        });
+        this.cooldown = 8;
+    }
+
+    continueGame() {
+        this.gameOver = false;
+        this.banner = null;
+        this.lives = this.maxLives;
+        this.resetShip();
+    }
+
+    wrap(o, m = 0) {
+        if (o.x < -m) o.x = this.width + m;
+        else if (o.x > this.width + m) o.x = -m;
+        if (o.y < -m) o.y = this.height + m;
+        else if (o.y > this.height + m) o.y = -m;
+    }
+
+    // ---------- update ----------
+    update(dt) {
+        // Rocks keep drifting even while a banner shows
+        for (const r of this.rocks) {
+            r.x += r.vx * dt;
+            r.y += r.vy * dt;
+            r.rot += r.rs * dt;
+            this.wrap(r, r.hw);
         }
-        if (this.keys['ArrowRight']) {
-            this.ship.angle += this.ship.rotationSpeed;
+        if (this.frozen || this.gameOver) return;
+
+        const s = this.ship;
+        this.cooldown -= dt;
+        if (s.invulnerable > 0) s.invulnerable -= dt;
+
+        // Touch: left third rotates left, right third rotates right, middle thrusts; any touch fires
+        let left = this.keyLeft();
+        let right = this.keyRight();
+        let thrust = this.keyUp();
+        let fire = this.keyFire();
+        for (const p of this.pointers.values()) {
+            if (p.type === 'mouse') continue;
+            if (p.x < this.width / 3) left = true;
+            else if (p.x > this.width * 2 / 3) right = true;
+            else thrust = true;
+            fire = true;
         }
-        
-        // Thrust
-        if (this.keys['ArrowUp']) {
-            this.ship.vx += Math.cos(this.ship.angle) * this.ship.thrust;
-            this.ship.vy += Math.sin(this.ship.angle) * this.ship.thrust;
-            
-            // Thrust particles
-            if (Math.random() < 0.5) {
-                const exhaustAngle = this.ship.angle + Math.PI;
+
+        if (left) s.angle -= s.rotationSpeed * dt;
+        if (right) s.angle += s.rotationSpeed * dt;
+        this.thrusting = thrust;
+        if (thrust) {
+            s.vx += Math.cos(s.angle) * s.thrust * dt;
+            s.vy += Math.sin(s.angle) * s.thrust * dt;
+            if (Math.random() < 0.5 * dt) {
+                const a = s.angle + Math.PI;
                 this.particles.push({
-                    x: this.ship.x + Math.cos(exhaustAngle) * this.ship.size * 0.5,
-                    y: this.ship.y + Math.sin(exhaustAngle) * this.ship.size * 0.5,
-                    vx: Math.cos(exhaustAngle) * 2 + (Math.random() - 0.5),
-                    vy: Math.sin(exhaustAngle) * 2 + (Math.random() - 0.5),
-                    size: 2,
-                    life: 0.5,
-                    color: GAME_CONFIG.theme.warning
+                    x: s.x + Math.cos(a) * s.size * 0.5,
+                    y: s.y + Math.sin(a) * s.size * 0.5,
+                    vx: Math.cos(a) * 2 + (Math.random() - 0.5),
+                    vy: Math.sin(a) * 2 + (Math.random() - 0.5),
+                    size: 2, life: 0.5, gravity: 0, color: this.theme.warning
                 });
             }
         }
-        
-        // Apply friction
-        this.ship.vx *= this.ship.friction;
-        this.ship.vy *= this.ship.friction;
-        
-        // Move ship
-        this.ship.x += this.ship.vx;
-        this.ship.y += this.ship.vy;
-        
-        // Wrap around screen
-        if (this.ship.x < 0) this.ship.x = this.canvas.width;
-        if (this.ship.x > this.canvas.width) this.ship.x = 0;
-        if (this.ship.y < 0) this.ship.y = this.canvas.height;
-        if (this.ship.y > this.canvas.height) this.ship.y = 0;
-        
-        // Update bullets
-        this.bullets = this.bullets.filter(bullet => {
-            bullet.x += bullet.vx;
-            bullet.y += bullet.vy;
-            bullet.life--;
-            
-            // Wrap bullets
-            if (bullet.x < 0) bullet.x = this.canvas.width;
-            if (bullet.x > this.canvas.width) bullet.x = 0;
-            if (bullet.y < 0) bullet.y = this.canvas.height;
-            if (bullet.y > this.canvas.height) bullet.y = 0;
-            
-            return bullet.life > 0;
-        });
-        
-        // Update words
-        this.words.forEach(word => {
-            word.x += word.vx;
-            word.y += word.vy;
-            word.rotation += word.rotationSpeed;
-            
-            // Wrap words
-            if (word.x < -word.size) word.x = this.canvas.width + word.size;
-            if (word.x > this.canvas.width + word.size) word.x = -word.size;
-            if (word.y < -word.size) word.y = this.canvas.height + word.size;
-            if (word.y > this.canvas.height + word.size) word.y = -word.size;
-        });
-        
-        // Collision detection
-        this.bullets.forEach((bullet, bulletIndex) => {
-            this.words.forEach((word) => {
-                if (word.hit) return;
-                
-                const dx = bullet.x - word.x;
-                const dy = bullet.y - word.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance < word.size / 2) {
-                    word.hit = true;
-                    this.bullets.splice(bulletIndex, 1);
-                    
-                    this.particles.push(...this.createParticles(word.x, word.y, word.color, 20));
-                    this.updateScore(word.text.length * 5);
-                }
-            });
-        });
-        
-        // Remove hit words
-        this.words = this.words.filter(word => !word.hit);
-        
-        // Respawn words if all destroyed
-        if (this.words.length === 0) {
-            this.createWords();
+        if (fire) this.shoot();
+
+        const friction = Math.pow(s.friction, dt);
+        s.vx *= friction;
+        s.vy *= friction;
+        const maxSpeed = 7;
+        const v = Math.hypot(s.vx, s.vy);
+        if (v > maxSpeed) { s.vx *= maxSpeed / v; s.vy *= maxSpeed / v; }
+        s.x += s.vx * dt;
+        s.y += s.vy * dt;
+        this.wrap(s);
+
+        for (const b of this.bullets) {
+            b.x += b.vx * dt;
+            b.y += b.vy * dt;
+            b.life -= dt;
+            this.wrap(b);
+            if (b.life <= 0) b.dead = true;
         }
-        
-        this.particles = this.updateParticles(this.particles);
+
+        // Bullet vs rock: one rock per bullet
+        for (const b of this.bullets) {
+            if (b.dead) continue;
+            const rock = this.rocks.find(r => !r.dead && this.hitsRock(r, b.x, b.y, 2));
+            if (!rock) continue;
+            b.dead = true;
+            rock.dead = true;
+            this.createParticles(rock.x, rock.y, rock.color, 18);
+            this.updateScore(rock.text.length * 5);
+            this.reveal(rock.line);
+        }
+
+        // Ship vs rock
+        if (s.invulnerable <= 0 && this.rocks.some(r => !r.dead && this.hitsRock(r, s.x, s.y, s.size * 0.5))) {
+            this.shipDestroyed();
+        }
+
+        this.bullets = this.bullets.filter(b => !b.dead);
+        this.rocks = this.rocks.filter(r => !r.dead);
+
+        if (this.rocks.length === 0) {
+            if (this.queue.length) this.spawnBatch();
+            else {
+                const title = this.currentSection().title;
+                this.showBanner('SECTION CLEARED', title, 100, () => this.loadSection(this.advanceSection()));
+            }
+        }
     }
-    
+
+    shipDestroyed() {
+        const s = this.ship;
+        this.createParticles(s.x, s.y, this.theme.primary, 30);
+        this.lives--;
+        if (this.lives <= 0) {
+            s.alive = false;
+            this.gameOver = true;
+            this.showBanner('GAME OVER', this.isTouch ? 'TAP TO CONTINUE' : 'SPACE TO CONTINUE', Infinity);
+        } else {
+            this.resetShip();
+        }
+    }
+
+    // ---------- draw ----------
     draw() {
-        // Clear with trail effect
-        this.ctx.fillStyle = 'rgba(0, 10, 10, 0.2)';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Draw words
-        this.ctx.font = '16px "Press Start 2P"';
-        this.words.forEach(word => {
-            this.ctx.save();
-            this.ctx.translate(word.x, word.y);
-            this.ctx.rotate(word.rotation);
-            
-            this.ctx.shadowColor = word.color;
-            this.ctx.shadowBlur = 15;
-            this.ctx.fillStyle = word.color;
-            this.ctx.textAlign = 'center';
-            this.ctx.textBaseline = 'middle';
-            this.ctx.fillText(word.text, 0, 0);
-            
-            this.ctx.restore();
-        });
-        
-        this.ctx.textAlign = 'left';
-        this.ctx.textBaseline = 'alphabetic';
-        
-        // Draw bullets
-        this.bullets.forEach(bullet => {
-            this.ctx.shadowColor = bullet.color;
-            this.ctx.shadowBlur = 10;
-            this.ctx.fillStyle = bullet.color;
-            this.ctx.fillRect(bullet.x - 2, bullet.y - 2, 4, 4);
-        });
-        
-        // Draw ship
-        this.ctx.save();
-        this.ctx.translate(this.ship.x, this.ship.y);
-        this.ctx.rotate(this.ship.angle);
-        
-        this.ctx.shadowColor = this.ship.color;
-        this.ctx.shadowBlur = 20;
-        this.ctx.strokeStyle = this.ship.color;
-        this.ctx.lineWidth = 2;
-        
-        // Ship triangle
-        this.ctx.beginPath();
-        this.ctx.moveTo(this.ship.size, 0);
-        this.ctx.lineTo(-this.ship.size * 0.6, this.ship.size * 0.6);
-        this.ctx.lineTo(-this.ship.size * 0.3, 0);
-        this.ctx.lineTo(-this.ship.size * 0.6, -this.ship.size * 0.6);
-        this.ctx.closePath();
-        this.ctx.stroke();
-        
-        this.ctx.restore();
-        
-        // Draw particles
-        this.drawParticles(this.particles);
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.font = `${this.rockFont}px ${FONT}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowBlur = 12;
+        for (const r of this.rocks) {
+            ctx.save();
+            ctx.translate(r.x, r.y);
+            ctx.rotate(r.rot);
+            ctx.shadowColor = r.color;
+            ctx.fillStyle = r.color;
+            ctx.fillText(r.text, 0, 1);
+            ctx.restore();
+        }
+
+        ctx.shadowColor = this.theme.accent;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = this.theme.accent;
+        for (const b of this.bullets) ctx.fillRect(b.x - 2, b.y - 2, 4, 4);
+
+        // Ship (blinks while invulnerable)
+        const s = this.ship;
+        const blink = s.invulnerable > 0 && Math.floor(s.invulnerable / 6) % 2 === 0;
+        if (s.alive && !blink) {
+            ctx.save();
+            ctx.translate(s.x, s.y);
+            ctx.rotate(s.angle);
+            ctx.shadowColor = this.theme.primary;
+            ctx.shadowBlur = 20;
+            ctx.strokeStyle = this.theme.primary;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(s.size, 0);
+            ctx.lineTo(-s.size * 0.6, s.size * 0.6);
+            ctx.lineTo(-s.size * 0.3, 0);
+            ctx.lineTo(-s.size * 0.6, -s.size * 0.6);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Touch zone hints
+        if (this.isTouch) {
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 0.25;
+            ctx.strokeStyle = this.theme.primary;
+            ctx.setLineDash([4, 6]);
+            ctx.beginPath();
+            ctx.moveTo(this.width / 3, this.height - 60);
+            ctx.lineTo(this.width / 3, this.height);
+            ctx.moveTo(this.width * 2 / 3, this.height - 60);
+            ctx.lineTo(this.width * 2 / 3, this.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 0.5;
+            ctx.font = `10px ${FONT}`;
+            ctx.fillStyle = this.theme.primary;
+            ctx.fillText('ROTATE <', this.width / 6, this.height - 20);
+            ctx.fillText('THRUST', this.width / 2, this.height - 20);
+            ctx.fillText('> ROTATE', this.width * 5 / 6, this.height - 20);
+        }
+        ctx.restore();
     }
 }
