@@ -53,6 +53,8 @@ examples/           Sample resume configs
 IMPROVEMENTS.md     Review notes and remaining to-dos
 ```
 
+> **Cache tip:** GitHub Pages lets browsers cache files for ~10 minutes. When you change any `.js` or `.css` file, bump the `?v=` number on its tag in `index.html` so visitors never get a mix of old and new files.
+
 ## 🧪 Run locally
 
 ```bash
