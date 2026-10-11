@@ -312,5 +312,12 @@ const GAMES = {
         create: (c, ui) => new AsteroidsGame(c, ui),
         help: '◄ ► ROTATE • ▲ THRUST • SPACE FIRE • TOUCH: L/R ROTATE, MIDDLE THRUST',
         blurb: 'BLAST THE FLOATING WORDS'
+    },
+    maze: {
+        title: 'RESUME MAZE',
+        key: '4',
+        create: (c, ui) => new MazeGame(c, ui),
+        help: 'ARROWS / WASD MOVE • CLICK OR TAP A PATH • COLLECT DATA, AVOID THE CHASERS',
+        blurb: 'EXPLORE A 3D WORLD BUILT FROM MY RESUME'
     }
 };

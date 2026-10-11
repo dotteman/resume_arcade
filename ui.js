@@ -67,7 +67,7 @@ const UI = {
         this.gameKey = null;
         this.setTitle('RESUME ARCADE');
         this.$('instructions').textContent = 'PICK A GAME — EVERY HIT UNLOCKS PART OF THE RESUME';
-        this.$('footerText').textContent = 'PRESS 1, 2 OR 3 TO INSERT COIN';
+        this.$('footerText').textContent = 'PRESS 1, 2, 3 OR 4 TO INSERT COIN';
         this.$('btnPause').hidden = true;
         this.$('menu').hidden = false;
         history.replaceState(null, '', location.pathname);
@@ -128,8 +128,8 @@ const UI = {
                 case 'KeyM': if (this.game) this.showMenu(); break;
                 case 'KeyP':
                 case 'Escape': if (this.game) this.game.togglePause(); break;
-                case 'Digit1': case 'Digit2': case 'Digit3':
-                case 'Numpad1': case 'Numpad2': case 'Numpad3': {
+                case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4':
+                case 'Numpad1': case 'Numpad2': case 'Numpad3': case 'Numpad4': {
                     if (this.game) break;
                     const n = e.code.slice(-1);
                     const key = Object.keys(GAMES).find(k => GAMES[k].key === n);
