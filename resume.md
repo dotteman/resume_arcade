@@ -60,7 +60,7 @@ DevOps engineer with more than 20 years of experience in systems administration,
 
 ## Education
 
-### BS, Exercise Physiology | Oregon State University | 1992
+### BS, Exercise Physiology | Oregon State University 
 
 ## Projects
 
