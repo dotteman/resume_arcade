@@ -338,6 +338,15 @@ body.no-crt .glitch::after { animation: none; }
 .menu-read { grid-template-areas: "key name"; }
 .menu-read .menu-name { color: var(--neon-yellow); }
 
+.menu-error {
+    max-width: 560px;
+    font-family: var(--terminal);
+    font-size: 1.35rem;
+    line-height: 1.3;
+    text-align: center;
+    color: #d8ffff;
+}
+
 .menu-or {
     font-size: 0.6rem;
     color: var(--text-dim);
@@ -609,3 +618,21 @@ body.no-crt .glitch::after { animation: none; }
     .resume-view * { color: #000 !important; text-shadow: none !important; border-color: #999 !important; }
     .rv-body { font-size: 12pt; }
 }
+
+/* ---------- resume view: generic sections from resume.md ---------- */
+.resume-view section > p,
+.rv-job p {
+    margin: 4px 0 6px;
+}
+
+.rv-list {
+    padding-left: 1.2em;
+}
+
+.rv-list li::marker { content: '> '; color: var(--neon-green); }
+
+.resume-view code {
+    font-family: var(--terminal);
+    color: var(--neon-yellow);
+}
+

@@ -24,5 +24,8 @@ jobs:
             node --check "$f"
           done
 
+      - name: Validate resume markdown
+        run: node tests/validate-resume.js
+
       - name: Lint HTML
         run: npx --yes htmlhint@1 index.html

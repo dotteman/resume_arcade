@@ -12,12 +12,12 @@ Legend: ✅ done in the `arcade-improvements` PR · ⬜ left for Dave (content d
 
 | | Item | Why |
 |---|---|---|
-| ✅ | **Readable resume view** — `R` key / "READ RESUME" button opens a plain HTML resume generated from `RESUME_CONFIG` | Recruiters give a page ~10 seconds; canvas text is invisible to screen readers and ATS |
+| ✅ | **Readable resume view** — `R` key / "READ RESUME" button opens a plain HTML resume generated from `resume.md` | Recruiters give a page ~10 seconds; canvas text is invisible to screen readers and ATS |
 | ✅ | **Reveal-as-you-play** — every hit "unlocks" its resume line into a side panel; sections show `UNLOCKED` when complete | Gameplay builds the resume instead of erasing it |
 | ✅ | **Start screen / game select** (`1` `2` `3` or click), plus `?game=invaders\|breakout\|asteroids` deep links | Visitors choose; "INSERT COIN" now actually does something |
 | ✅ | **LinkedIn + GitHub links shown** (were in config but never rendered) | |
 | ✅ | **GitHub link corrected** to `github.com/dotteman` (config said `daveotteman`) | ⚠️ verify — and confirm the LinkedIn slug too |
-| ⬜ | **PDF download** — drop `Dave_Otteman_Resume.pdf` in the repo and set `personal.resumePdf` in `config.js`; the button appears automatically | |
+| ⬜ | **PDF download** — drop `Dave_Otteman_Resume.pdf` in the repo and set `- PDF: Dave_Otteman_Resume.pdf` in `resume.md`; the button appears automatically | |
 
 ## 2. Gameplay bugs
 
@@ -58,7 +58,7 @@ Legend: ✅ done in the `arcade-improvements` PR · ⬜ left for Dave (content d
   - Windows Server 2025 build/provisioning automation
 - ⬜ **Title:** consider "CLOUD / DEVOPS ENGINEER" if that matches how BBSI frames the role.
 - ⬜ **Skills:** consider adding AZURE DEVOPS, PACKER, ENTRA ID, HCP TERRAFORM.
-- ✅ **Case handling:** the games now upper-case automatically, so `config.js` can be written in normal sentence case (easier to read in the resume view and for recruiters). ⬜ Rewrite the config text in normal case when you update the bullets.
+- ✅ **Case handling:** the games now upper-case automatically, so the resume can be written in normal sentence case (easier to read in the resume view and for recruiters). ✅ Done.
 - ⬜ **Graduation year:** many resume guides suggest omitting it. Your call.
 - ⬜ **Projects section:** link this repo itself — it's a nice portfolio piece.
 
@@ -67,7 +67,8 @@ Legend: ✅ done in the `arcade-improvements` PR · ⬜ left for Dave (content d
 | | Item |
 |---|---|
 | ✅ | README rewritten around *your* resume: live link, controls, how to edit |
-| ✅ | `TEMPLATES.js` moved to `examples/` (it was never loaded) |
+| ✅ | `TEMPLATES.js` moved to `examples/` (it was never loaded); later replaced by `examples/resume.template.md` |
+| ✅ | **Resume in markdown:** `resume.md` is the single source for the games and resume view; commented template in `examples/`; CI validates the format; `?resume=` preview |
 | ✅ | GitHub Action: syntax-checks all JS and lints HTML on every push/PR |
 | ⬜ | Add a gameplay GIF to the README |
 
