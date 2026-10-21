@@ -12,12 +12,15 @@ const UI = {
     pausedByModal: false,
     totalLines: 0,
 
-    init() {
-        this.sections = buildResumeSections();
+    init(resume) {
+        this.resume = resume;
+        this.sections = buildResumeSections(resume);
         this.sections.forEach(s => s.lines.forEach(l => this.lineById.set(l.id, l)));
         this.totalLines = this.lineById.size;
         this.$ = (id) => document.getElementById(id);
         this.canvas = this.$('gameCanvas');
+        this.canvas.setAttribute('aria-label',
+            `Arcade game built from ${resume.name || 'this'} resume. Press R for a readable version.`);
 
         this.loadPrefs();
         this.buildRevealPanel();
@@ -83,7 +86,7 @@ const UI = {
         this.$('footerText').textContent = 'PRESS 1, 2, 3 OR 4 TO INSERT COIN';
         this.$('btnPause').hidden = true;
         this.$('menu').hidden = false;
-        history.replaceState(null, '', location.pathname);
+        history.replaceState(null, '', urlWithGame(null));
         const def = this.$('menuList').querySelector(`[data-game="${GAME_CONFIG.defaultGame}"]`)
             || this.$('menuList').firstElementChild;
         if (def && !this.modalOpen) def.focus({ preventScroll: true });
@@ -100,7 +103,7 @@ const UI = {
         this.$('footerText').textContent = 'R READ RESUME • P PAUSE • M MENU';
         this.$('btnPause').hidden = false;
         this.$('btnPause').textContent = '[P] PAUSE';
-        history.replaceState(null, '', `${location.pathname}?game=${key}`);
+        history.replaceState(null, '', urlWithGame(key));
         this.game = def.create(this.canvas, this);
         this.game.start();
         ArcadeAudio.play('select');
@@ -111,7 +114,7 @@ const UI = {
         const h = this.$('gameTitle');
         h.textContent = text;
         h.setAttribute('data-text', text);
-        document.title = `${text} — ${RESUME_CONFIG.personal.name}`;
+        document.title = this.resume.name ? `${text} — ${this.resume.name}` : text;
     },
 
     onPauseChanged(paused) {
@@ -246,50 +249,70 @@ const UI = {
 
     // ---------- readable resume ----------
     renderResume() {
-        const r = RESUME_CONFIG;
-        const p = r.personal || {};
-        const url = (s) => (/^https?:\/\//i.test(s) ? s : `https://${s}`);
+        const r = this.resume;
+        const c = r.contact || {};
+        const link = (value, href) => href
+            ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(mdToText(value))}</a>`
+            : escapeHtml(mdToText(value));
         const contact = [];
-        if (p.location) contact.push(`<li>${escapeHtml(p.location)}</li>`);
-        if (p.email) contact.push(`<li><a href="mailto:${escapeHtml(p.email)}">${escapeHtml(p.email)}</a></li>`);
-        if (p.linkedin) contact.push(`<li><a href="${escapeHtml(url(p.linkedin))}" target="_blank" rel="noopener">${escapeHtml(p.linkedin)}</a></li>`);
-        if (p.github) contact.push(`<li><a href="${escapeHtml(url(p.github))}" target="_blank" rel="noopener">${escapeHtml(p.github)}</a></li>`);
+        if (c.location) contact.push(`<li>${mdToHtml(c.location)}</li>`);
+        if (c.email) contact.push(`<li>${link(c.email, toHref(c.email))}</li>`);
+        if (c.phone) contact.push(`<li>${link(c.phone, safeUrl(`tel:${mdToText(c.phone).replace(/[^\d+]/g, '')}`))}</li>`);
+        ['linkedin', 'github', 'website'].forEach(k => {
+            if (c[k]) contact.push(`<li>${link(c[k], toHref(c[k]))}</li>`);
+        });
+        (c.extra || []).forEach(x => contact.push(
+            `<li>${x.label ? `${escapeHtml(x.label)}: ` : ''}${mdToHtml(x.value)}</li>`));
 
         let html = `
             <header class="rv-header">
-                <h2 id="rvName">${escapeHtml(p.name || '')}</h2>
-                <p class="rv-title">${escapeHtml(p.title || '')}</p>
+                <h2 id="rvName">${escapeHtml(r.name || '')}</h2>
+                ${r.title ? `<p class="rv-title">${escapeHtml(r.title)}</p>` : ''}
                 <ul class="rv-contact">${contact.join('')}</ul>
             </header>`;
 
-        if (r.summary && r.summary.length) {
-            html += `<section><h3>Summary</h3><p>${escapeHtml(r.summary.join(' '))}</p></section>`;
-        }
-        if (r.skills && r.skills.length) {
-            html += `<section><h3>Skills</h3><ul class="rv-skills">${r.skills.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul></section>`;
-        }
-        if (r.experience && r.experience.length) {
-            html += `<section><h3>Experience</h3>${r.experience.map(j => `
+        (r.sections || []).forEach(s => {
+            const isSkills = /skill|tool|tech|stack|language/i.test(s.title);
+            const isJobs = /experience|employment|work|career/i.test(s.title);
+            let body = '';
+            if (s.items.length) {
+                if (s.items.every(it => it.kind === 'para')) {
+                    body += s.items.map(it => `<p>${mdToHtml(it.text)}</p>`).join('');
+                } else {
+                    body += `<ul class="${isSkills ? 'rv-skills' : 'rv-list'}">${s.items.map(it => `<li>${mdToHtml(it.text)}</li>`).join('')}</ul>`;
+                }
+            }
+            body += s.entries.map(e => {
+                const [head, sub, ...rest] = e.parts;
+                const subHtml = sub ? ` <span class="rv-company">${isJobs ? '@ ' : '— '}${escapeHtml(sub)}</span>` : '';
+                return `
                 <article class="rv-job">
                     <div class="rv-job-head">
-                        <h4>${escapeHtml(j.title)} <span class="rv-company">@ ${escapeHtml(j.company)}</span></h4>
-                        <span class="rv-period">${escapeHtml(j.period || '')}</span>
+                        <h4>${escapeHtml(head || '')}${subHtml}</h4>
+                        ${rest.length ? `<span class="rv-period">${escapeHtml(rest.join(' | '))}</span>` : ''}
                     </div>
-                    <ul>${(j.achievements || []).map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ul>
-                </article>`).join('')}</section>`;
-        }
-        if (r.education && r.education.length) {
-            html += `<section><h3>Education</h3><ul class="rv-plain">${r.education.map(e =>
-                `<li><strong>${escapeHtml(e.degree)}</strong> — ${escapeHtml(e.school)}${e.year ? ` (${escapeHtml(e.year)})` : ''}</li>`).join('')}</ul></section>`;
-        }
-        if (r.projects && r.projects.length) {
-            html += `<section><h3>Projects</h3><ul class="rv-plain">${r.projects.map(pr =>
-                `<li><strong>${escapeHtml(pr.name)}</strong> — ${escapeHtml(pr.description || '')}${pr.tech ? ` <em>[${escapeHtml(pr.tech)}]</em>` : ''}</li>`).join('')}</ul></section>`;
-        }
+                    ${e.text.map(t => `<p>${mdToHtml(t)}</p>`).join('')}
+                    ${e.bullets.length ? `<ul>${e.bullets.map(b => `<li>${mdToHtml(b)}</li>`).join('')}</ul>` : ''}
+                </article>`;
+            }).join('');
+            html += `<section><h3>${escapeHtml(s.title)}</h3>${body}</section>`;
+        });
         this.$('rvBody').innerHTML = html;
 
         const pdf = this.$('rvPdf');
-        if (p.resumePdf) { pdf.href = p.resumePdf; pdf.hidden = false; }
+        const pdfHref = c.pdf && safeUrl(mdToText(c.pdf));
+        if (pdfHref) { pdf.href = pdfHref; pdf.hidden = false; }
+    },
+
+    // Shown instead of the menu when resume.md can't be loaded
+    showLoadError(err) {
+        const menu = document.getElementById('menu');
+        document.getElementById('instructions').textContent = 'RESUME FILE NOT LOADED';
+        menu.innerHTML = `
+            <h2 class="menu-title">RESUME NOT FOUND</h2>
+            <p class="menu-error">${escapeHtml(err.message)}</p>`;
+        menu.hidden = false;
+        console.error(err);
     },
 
     openResume() {
@@ -312,11 +335,15 @@ const UI = {
     }
 };
 
-function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Current page URL with ?game= set (or removed), keeping other params like ?resume=
+function urlWithGame(game) {
+    const params = new URLSearchParams(location.search);
+    if (game) params.set('game', game); else params.delete('game');
+    const q = params.toString().replace(/%2F/gi, "/");
+    return `${location.pathname}${q ? `?${q}` : ''}`;
 }
 
-// Wait for the pixel font so the canvas never draws with a fallback font
+// Load resume.md and wait for the pixel font (so the canvas never draws with a fallback font)
 window.addEventListener('DOMContentLoaded', () => {
     const ready = document.fonts && document.fonts.load
         ? Promise.race([
@@ -324,5 +351,8 @@ window.addEventListener('DOMContentLoaded', () => {
             new Promise(r => setTimeout(r, 2500))
         ])
         : Promise.resolve();
-    ready.catch(() => {}).then(() => UI.init());
+    const resume = loadResume(resumePathFromUrl(GAME_CONFIG.resumeFile || 'resume.md'));
+    Promise.all([ready.catch(() => {}), resume])
+        .then(([, data]) => UI.init(data))
+        .catch(err => UI.showLoadError(err));
 });

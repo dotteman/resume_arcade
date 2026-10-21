@@ -19,7 +19,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
-    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
     <div class="crt-container" id="crt">
@@ -48,7 +48,7 @@
             <div class="play-area">
                 <div class="canvas-wrap">
                     <canvas id="gameCanvas" tabindex="0" role="img"
-                            aria-label="Arcade game built from Dave Otteman's resume. Press R for a readable version."></canvas>
+                            aria-label="Arcade game built from a resume. Press R for a readable version."></canvas>
 
                     <div class="menu" id="menu" hidden>
                         <h2 class="menu-title">SELECT GAME</h2>
@@ -73,7 +73,7 @@
             </footer>
         </div>
 
-        <!-- Readable resume (generated from config.js) -->
+        <!-- Readable resume (generated from resume.md) -->
         <div class="resume-view" id="resumeView" role="dialog" aria-modal="true" aria-labelledby="rvName" hidden>
             <div class="rv-actions">
                 <a class="btn btn-primary" id="rvPdf" download hidden>DOWNLOAD PDF</a>
@@ -86,22 +86,21 @@
 
     <noscript>
         <div class="noscript">
-            <h1>Dave Otteman — DevOps Engineer</h1>
-            <p>Portland, OR · <a href="mailto:dave.otteman@gmail.com">dave.otteman@gmail.com</a> ·
-               <a href="https://linkedin.com/in/dave-otteman-59b03b16/">LinkedIn</a> ·
-               <a href="https://github.com/dotteman">GitHub</a></p>
-            <p>This arcade resume needs JavaScript. The resume data lives in <code>config.js</code> in the repository.</p>
+            <p>This arcade resume needs JavaScript.</p>
+            <p><a href="resume.md">Read the plain-text resume (resume.md)</a></p>
         </div>
     </noscript>
 
-    <!-- Configuration (edit resume here) -->
-    <script src="config.js?v=5"></script>
+    <!-- Game settings (the resume itself is in resume.md) -->
+    <script src="config.js?v=6"></script>
+    <!-- Reads resume.md and turns it into game sections -->
+    <script src="resume-parser.js?v=1"></script>
     <!-- Engine, games, UI -->
     <script src="engine.js?v=13"></script>
     <script src="game-invaders.js?v=10"></script>
     <script src="game-breakout.js?v=10"></script>
     <script src="game-asteroids.js?v=13"></script>
     <script src="game-maze.js?v=13"></script>
-    <script src="ui.js?v=10"></script>
+    <script src="ui.js?v=11"></script>
 </body>
 </html>
